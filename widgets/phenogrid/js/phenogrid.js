@@ -603,6 +603,13 @@ function modelDataPointPrint(point) {
 		overviewY++;
 		var modelRectTransform = "translate(" + overviewX +	"," + overviewY + ")";
 
+	        var colorSelector;
+	        if (axisStatus) {
+		    colorSelector = "yID";
+		} else {
+		    colorSelector="xID";
+		}
+
 		model_rects.enter()
 			.append("rect")
 			.attr("transform",modelRectTransform)
@@ -613,11 +620,12 @@ function modelDataPointPrint(point) {
 			.attr("height", linePad)
 			.attr("fill", function(d) {
 				var colorID;
-				if (axisStatus){
+			        colorID=d[colorSelector];
+				/*  if (axisStatus){
 					colorID = d.yID;
 				} else {
 					colorID = d.xID;
-				} 
+				} */
 				return self._getColorForModelValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
 			});
 
