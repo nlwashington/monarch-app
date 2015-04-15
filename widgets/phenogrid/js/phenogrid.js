@@ -66,6 +66,12 @@ function modelDataPointPrint(point) {
 	return "X:" + point.xID + ", Y:" + point.yID;
 }
 
+
+// a routine that will wrap data required for axis rendering
+var AxisGroup = function()  {
+    
+};
+
 (function($) {
 	$.widget("ui.phenogrid", {
 		// core commit. Not changeable by options. 
@@ -373,9 +379,31 @@ function modelDataPointPrint(point) {
 		// do not alter this array: this.state.phenotypeData
 
 		this._adjustPhenotypeCount();
-		this._adjustModelCount();
-		this.state.currXIdx = this._getXLimit();
-		this.state.currYIdx = this._getYLimit();
+	        this._adjustModelCount();
+
+	        /*** Build axis group here. */
+	        /* remember, source = phenotype and target=model */
+    	        var self = this; 
+	        this.state.sourceAxis = {
+		    itemCount: function() {
+			return self.state.phenoDisplayCount;
+		    }
+		};
+
+
+	        this.state.targetAxis = {
+		    itemCount: function() {
+			return self.state.phenoDisplayCount;
+		    }
+		};
+	        self.state.xAxisRender = this.state.targetAxis;
+	        self.state.yAxisRender = this.state.sourceAxis;
+
+	    
+		//this.state.currXIdx = this._getXLimit();
+	    //this.state.currYIdx = this._getYLimit();
+	       this.state.currYIdx = this.state.xAxisRender.itemCount();
+    	       this.state.currYIdx = this.state.yAxisRender.itemCount();
 		this._createColorScale();
 	},
 
@@ -386,8 +414,10 @@ function modelDataPointPrint(point) {
 	},
 
 	_reDraw: function() {
-		if (this.state.phenoLength !== 0 && this.state.filteredModelData.length !== 0){
-			var displayCount = this._getYLimit();
+	    if (this.state.phenoLength !== 0 && this.state.filteredModelData.length !== 0){
+		//var displayCount = this._getYLimit();
+		var displayCount = this.state.yAxisRender.itemCount();
+
 			this._setComparisonType();
 			this._initCanvas();
 			this._addLogoImage();
@@ -520,8 +550,11 @@ function modelDataPointPrint(point) {
 		var mHeight = self.state.heightOfSingleModel;
 		// create a blank grid to match the size of the phenogrid grid
 		var data = [];
-		var rowCt = self._getYLimit();
-		var colCt = self._getXLimit();
+		//var rowCt = self._getYLimit();
+   	        //var colCt = self._getXLimit();
+   	        var rowCt = self.state.yAxisRender.itemCount();
+   	        var colCt = self.state.xAxisRender.itemCount();
+	     
 
 		for (var k = 0; k < rowCt; k++){
 			for (var l = 0; l < colCt; l++) {
@@ -561,9 +594,10 @@ function modelDataPointPrint(point) {
 	_createOverviewSection: function() {
 		var self = this;
 		var axisStatus = this.state.invertAxis;
-		var yCount = self._getYLimit();
-		var xCount = self._getXLimit();
-
+		//var yCount = self._getYLimit();
+	    //var xCount = self._getXLimit();
+	    var yCount = self.state.yAxisRender.itemCount();
+	    var xCount = self.state.xAxisRender.itemCount();
 		var startYIdx = this.state.currYIdx - yCount;
 		var startXIdx = this.state.currXIdx - xCount;
 
@@ -953,9 +987,11 @@ function modelDataPointPrint(point) {
 		var axis_idx = 0;
 		var sortedYArray = [];
 
-		var	startYIdx = this.state.currYIdx - this._getYLimit();
+	   // var	startYIdx = this.state.currYIdx - this._getYLimit();
+	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.itemCount();
 		var	displayYLimiter = this.state.currYIdx;
-		var	startXIdx = this.state.currXIdx - this._getXLimit();
+	    //var	startXIdx = this.state.currXIdx - this._getXLimit();
+	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.itemCount();
 		var	displayXLimiter = this.state.currXIdx;
 
 		this.state.filteredYAxis = self._filterListHash(this.state.yAxis,startYIdx,displayYLimiter);
@@ -1799,7 +1835,8 @@ function modelDataPointPrint(point) {
 
 		var self = this;
 		var info = self._getAxisData(data);
-		var displayCount = self._getYLimit();
+	    //var displayCount = self._getYLimit();
+	    var displayCount = self.state.yAxisRender.itemCount();
 		var concept = self._getConceptId(data);
 		//console.log("selecting x item.."+concept);
 		var appearanceOverrides;
@@ -2117,7 +2154,8 @@ function modelDataPointPrint(point) {
 			h = height;
 		}
 		var wdt = this.state.axis_pos_list[1] + ((this.state.axis_pos_list[2] - this.state.axis_pos_list[1])/2);
-		var displayCount = this._getYLimit();
+	    //var displayCount = this._getYLimit();
+	    var displayCount = this.state.yAxisRender.itemCount();
 		var hgt = displayCount * 10 + this.state.yoffset;
 		var yv, wv;
 
@@ -2337,8 +2375,10 @@ function modelDataPointPrint(point) {
 		var hwidthAndGap = self.state.widthOfSingleModel;
 		var totCt = 0;
 		var parCt = 0;
-		var displayCount = self._getYLimit();
-		var displayCountX = self._getXLimit();
+		//var displayCount = self._getYLimit();
+	    //var displayCountX = self._getXLimit();
+	    var displayCount = self.state.yAxisRender.itemCount();
+	    var displayCountX = self.state.xAxisRender.itemCount();
 
 		// Have temporarly until fix for below during Axis Flip
 		if (self.state.targetSpeciesName == "Overview"){
@@ -2415,7 +2455,8 @@ function modelDataPointPrint(point) {
 
 	_highlightIntersection: function(curr_data, obj){
 		var self = this;
-		var displayCount = self._getYLimit();
+	    //var displayCount = self._getYLimit();
+	    var displayCount = self.state.yAxisRender.itemCount();
 		// Highlight Row
 		var highlight_rect = self.state.svg.append("svg:rect")
 			.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
@@ -2554,7 +2595,8 @@ function modelDataPointPrint(point) {
 	    var self = this;
 		var modelLineGap = 30;
 		var lineY = this.state.yoffset + modelLineGap;
-		var displayCount = self._getYLimit();
+	    //var displayCount = self._getYLimit();
+	    var displayCount = self.state.yAxisRender.itemCount();
 		//this.state.svg.selectAll("path.domain").remove();
 		//this.state.svg.selectAll("text.scores").remove();
 		//this.state.svg.selectAll("#specieslist").remove();
@@ -2696,7 +2738,8 @@ function modelDataPointPrint(point) {
 	_createRectangularContainers: function() {
 		var self = this;
 		this._buildAxisPositionList();
-		var displayCount = self._getYLimit();
+	    //var displayCount = self._getYLimit();
+	    var displayCount = self.state.yAxisRender.itemCount();
 
 		var gridHeight = displayCount * self.state.heightOfSingleModel + 10;
 		if (gridHeight < self.state.minHeight) {
@@ -2976,8 +3019,15 @@ function modelDataPointPrint(point) {
 		});
 
 		$( "#axisflip" ).click(function(d) {
-			self.state.invertAxis = !self.state.invertAxis;
-			self._resetSelections("axisflip");
+		    self.state.invertAxis = !self.state.invertAxis;
+		    if (self.state.invertAxis) {
+			self.state.xAxisRender = self.state.sourceAxis;
+			self.state.yAxisRender= self.state.targetAxis;
+		    } else {
+			self.state.xAxisRender = self.state.targetAxis;
+			self.state.yAxisRender= self.state.sourceAxis;
+		    }
+   		    self._resetSelections("axisflip");
 		});
 
 		self._configureFaqs();
