@@ -67,7 +67,7 @@ function modelDataPointPrint(point) {
 }
 
 
-// a routine that will wrap data required for axis rendering
+// an obeject  routine that will wrap data required for axis rendering
 var AxisGroup = function(displayCount,itemsHash)  {
     this.displayCount = displayCount;
     this.itemsHash = itemsHash;
@@ -100,6 +100,8 @@ AxisGroup.prototype.itemsContains = function(key) {
 AxisGroup.prototype.itemsPut = function(key,val) {
     this.itemsHash.put(key,val);
 };
+
+
 
 
 
@@ -191,7 +193,10 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			{ name: "Drosophila melanogaster", taxon: "7227"},
 			{ name: "UDPICS", taxon: "UDPICS"}],
 		// COMPARE CALL HACK - REFACTOR OUT
-		providedData: {}
+	    providedData: {},   
+	    axisFlipConfig: {
+		colorSelector: { true: "yID", false: "xID"}
+	    }
 	},
 
 	// reset state values that must be cleared before reloading data
@@ -434,24 +439,12 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 	    /* only do this if the group doesn't exist - don't
 	       recreate on reload */
-	    if (typeof (this.state.sourceAxis) == 'undefined') {
-	        this.state.sourceAxis = new AxisGroup(self.state.phenoDisplayCount,
-						      self.state.phenotypeListHash);
-	    }
-
-	    /* this should never be true if above test is false,
-	       (ie, if sourceAxis is undefined), 
-	       but just in case  */
-	    if (typeof(this.state.targetAxis) == 'undefined') {
-	        this.state.targetAxis =  new AxisGroup(self.state.modelDisplayCount,
-						       self.state.modelListHash);
-	    }
-
-	    /* again, these should not be undefined if the others weren't */
-	    if (typeof(self.state.xAxisRender) == 'undefined' 
-		|| typeof(self.state.yAxisRender) == 'undefined') {
-		self._setAxisRenderers();
-	    }
+	    this.state.sourceAxis = new AxisGroup(self.state.phenoDisplayCount,
+						  self.state.phenotypeListHash);
+	    
+	    this.state.targetAxis =  new AxisGroup(self.state.modelDisplayCount,
+						   self.state.modelListHash);
+	    self._setAxisRenderers();
 	},
 
        _setAxisRenderers: function() {
@@ -633,7 +626,6 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	// For the selection area, see if you can convert the selection to the idx of the x and y then redraw the bigger grid 
 	_createOverviewSection: function() {
 		var self = this;
-		var axisStatus = this.state.invertAxis;
 	    var yCount = self.state.yAxisRender.getItemCount();
 	    var xCount = self.state.xAxisRender.getItemCount();
 		var startYIdx = this.state.currYIdx - yCount;
@@ -675,12 +667,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		overviewY++;
 		var modelRectTransform = "translate(" + overviewX +	"," + overviewY + ")";
 
-	        var colorSelector;
-	        if (axisStatus) {
-		    colorSelector = "yID";
-		} else {
-		    colorSelector="xID";
-		}
+	        var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
 
 		model_rects.enter()
 			.append("rect")
@@ -695,7 +682,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			        colorID=d[colorSelector];
 				/*  if (axisStatus){
 					colorID = d.yID;
-				} else {
+			 	} else {
 					colorID = d.xID;
 				} */
 				return self._getColorForModelValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
@@ -2325,8 +2312,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	_createModelRects: function() {
 		var self = this;
 		var data = this.state.filteredModelData;
-		var axisStatus = this.state.invertAxis;
 
+
+	        var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
 		var rectTranslation = "translate(" + ((this.state.textWidth + this.state.xOffsetOver + 30) + 4) + "," + (self.state.yoffsetOver + 15)+ ")";
 		var model_rects = this.state.svg.selectAll(".models")
 			.data( data, function(d) {
@@ -2381,12 +2369,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			})
 			.style('opacity', '1.0')
 		.attr("fill", function(d) {
-			var colorID;
-			if (axisStatus){
-				colorID = d.yID;
-			} else {
-				colorID = d.xID;
-			} 
+			var colorID = d[colorSelector];
 			return self._getColorForModelValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
 		});
 
@@ -3056,7 +3039,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 		$( "#axisflip" ).click(function(d) {
 		    self.state.invertAxis = !self.state.invertAxis;
-		    self._setAxisRenderers();
+		   // self._setAxisRenderers();
    		    self._resetSelections("axisflip");
 		});
 
