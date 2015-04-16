@@ -50,19 +50,19 @@
  */
 var url = document.URL;
 
-// Creation of modelDataPoint object
-function modelDataPoint(x,y) {
+// Creation of cellDataPoint object
+function cellDataPoint(x,y) {
 	this.xID = x;
 	this.yID = y;
 }
 
 // Makes sure that matches are when both the X & Y values are the same
-function modelDataPointEquals(point1,point2) {
+function cellDataPointEquals(point1,point2) {
 	return point1.xID === point2.xID && point1.yID === point2.yID;
 }
 
 // Prints the point in a easy to understand way
-function modelDataPointPrint(point) {
+function cellDataPointPrint(point) {
 	return "X:" + point.xID + ", Y:" + point.yID;
 }
 
@@ -659,10 +659,10 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		self._createSmallScales(overviewRegionSize);
 
 		// add the items using smaller rects
-		var modData = self._mergeHashEntries(self.state.modelDataHash);
+		var cellData = self._mergeHashEntries(self.state.modelDataHash);
 
 		var model_rects = this.state.svg.selectAll(".mini_models")
-			.data(modData, function(d) {return d.yID + d.xID;});
+			.data(cellData, function(d) {return d.yID + d.xID;});
 		overviewX++;	// Corrects the gapping on the sides
 		overviewY++;
 		var modelRectTransform = "translate(" + overviewX +	"," + overviewY + ")";
@@ -1067,7 +1067,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		this.state.expandedHash = new Hashtable();  // for cache of genotypes
 		this.state.phenotypeListHash = new Hashtable();
 		this.state.modelListHash = new Hashtable();
-		this.state.modelDataHash = new Hashtable({hashCode: modelDataPointPrint, equals: modelDataPointEquals});
+		this.state.modelDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
 
 		// [vaa12] determine if is wise to preload datasets for the three species and then build overview from this
 		// At time being, overview is made up of three calls, which it repeats these calls with a larger limit if you decided to view single species
@@ -1275,9 +1275,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 				// Setting modelDataHash
 				if (this.state.invertAxis){
-					modelPoint = new modelDataPoint(this._getConceptId(curr_row.a.id), this._getConceptId(modelID));
+					modelPoint = new cellDataPoint(this._getConceptId(curr_row.a.id), this._getConceptId(modelID));
 				} else {
-					modelPoint = new modelDataPoint(this._getConceptId(modelID), this._getConceptId(curr_row.a.id));
+					modelPoint = new cellDataPoint(this._getConceptId(modelID), this._getConceptId(curr_row.a.id));
 				}
 				this._updateSortVals(this._getConceptId(curr_row.a.id), parseFloat(curr_row.lcs.IC));
 				hashData = {"value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": this._getConceptId(curr_row.lcs.id), "subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, "b_id": this._getConceptId(curr_row.b.id), "b_IC": parseFloat(curr_row.b.IC)};
@@ -1379,13 +1379,13 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	// Creates the filteredModelData data structure
 	_filterHashTables: function () {
 		var newFilteredModel = [];
-		var currentModelData = this.state.modelDataHash.entries();
+		var currentCellData = this.state.modelDataHash.entries();
 
-		for (var i in currentModelData){
-			if (this.state.filteredXAxis.containsKey(currentModelData[i][0].xID) && this.state.filteredYAxis.containsKey(currentModelData[i][0].yID)){
-				currentModelData[i][1].yID = currentModelData[i][0].yID;
-				currentModelData[i][1].xID = currentModelData[i][0].xID;
-				newFilteredModel.push(currentModelData[i][1]);
+		for (var i in currentCellData){
+			if (this.state.filteredXAxis.containsKey(currentCellData[i][0].xID) && this.state.filteredYAxis.containsKey(currentCellData[i][0].yID)){
+				currentCellData[i][1].yID = currentCellData[i][0].yID;
+				currentCellData[i][1].xID = currentCellData[i][0].xID;
+				newFilteredModel.push(currentCellData[i][1]);
 			}
 		}
 		this.state.filteredModelData = newFilteredModel;
@@ -1745,11 +1745,11 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 	// Will return all partial matches in the modelDataHash structure.  Good for finding rows/columns of data
 	_getMatchingModels: function (key) {
-		var modelKeys = this.state.modelDataHash.keys();
+		var cellKeys = this.state.modelDataHash.keys();
 		var matchingKeys = [];
 		for (var i in modelKeys){
-			if (key == modelKeys[i].yID || key == modelKeys[i].xID){
-				matchingKeys.push(modelKeys[i]);
+			if (key == cellKeys[i].yID || key == cellKeys[i].xID){
+				matchingKeys.push(cellKeys[i]);
 			}
 		}
 		return matchingKeys;
@@ -2856,8 +2856,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
  
 	_addGradients: function() {
 		var self = this;
-		var modData = this.state.modelDataHash.values();
-		var temp_data = modData.map(function(d) { return d.value[self.state.selectedCalculation];} );
+		var cellData = this.state.modelDataHash.values();
+		var temp_data = cellData.map(function(d) { return d.value[self.state.selectedCalculation];} );
 		var diff = d3.max(temp_data) - d3.min(temp_data);
 		var y1;
 
@@ -3713,7 +3713,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	_rebuildModelHash: function() {
 		// [vaa12] needs updating based on changes in finishLoad and finishOverviewLoad
 		this.state.phenotypeListHash = new Hashtable();
-		this.state.modelDataHash = new Hashtable({hashCode: modelDataPointPrint, equals: modelDataPointEquals});
+		this.state.modelDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
 		var modelPoint, hashData;
 		var y = 0;
 
@@ -3728,9 +3728,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 			// Setting modelDataHash
 			if (this.state.invertAxis){
-				modelPoint = new modelDataPoint(this.state.modelData[i].id_a, this.state.modelData[i].model_id);
+				modelPoint = new cellDataPoint(this.state.modelData[i].id_a, this.state.modelData[i].model_id);
 			} else {
-				modelPoint = new modelDataPoint(this.state.modelData[i].model_id, this.state.modelData[i].id_a);
+				modelPoint = new cellDataPoint(this.state.modelData[i].model_id, this.state.modelData[i].id_a);
 			}
 			this._updateSortVals(this.state.modelData[i].id_a, this.state.modelData[i].subsumer_IC);
 			hashData = {"value": this.state.modelData[i].value, "subsumer_label": this.state.modelData[i].subsumer_label, "subsumer_id": this.state.modelData[i].subsumer_id, "subsumer_IC": this.state.modelData[i].subsumer_IC, "b_label": this.state.modelData[i].label_b, "b_id": this.state.modelData[i].id_b, "b_IC": this.state.modelData[i].IC_b};
