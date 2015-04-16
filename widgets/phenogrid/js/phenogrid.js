@@ -356,7 +356,7 @@ var AxisGroup = function()  {
 			this.state.selectedCalculation = 2; // Force the color to Uniqueness
 		}
 
-		this._setSelectedCalculation(this.state.selectedCalculation);
+	    this._setSelectedCalculation(this.state.selectedCalculation);
 		this._setSelectedSort(this.state.selectedSort);
 
 
@@ -383,27 +383,44 @@ var AxisGroup = function()  {
 
 	        /*** Build axis group here. */
 	        /* remember, source = phenotype and target=model */
-    	        var self = this; 
+       	         var self = this;
+
+	    if (typeof (this.state.sourceAxis) == 'undefined') {
 	        this.state.sourceAxis = {
-		    itemCount: function() {
+		    _itemCount: function() {
 			return self.state.phenoDisplayCount;
+		    },
+		    _itemHash: function() {
+			return self.state.phenotypeListHash;
+		    },
+		    _axisSize: function() {
+			return self.state.phenotypeListHash.size();
 		    }
 		};
+	    }
 
-
+	    if (typeof(this.state.targetAxis) == 'undefined') {
 	        this.state.targetAxis = {
-		    itemCount: function() {
-			return self.state.phenoDisplayCount;
+		    _itemCount: function() {
+			return self.state.modelDisplayCount;
+		    },
+		    _itemHash : function() {
+			return self.state.modelListHash;
+		    },
+		    _axisSize: function() {
+			return self.state.modelListHash.size();
 		    }
 		};
+	    }
+
+	    if (typeof(self.state.xAxisRender) == 'undefined' || typeof(self.state.yAxisRender) == 'undefined') {
 	        self.state.xAxisRender = this.state.targetAxis;
 	        self.state.yAxisRender = this.state.sourceAxis;
+	    }
 
 	    
-		//this.state.currXIdx = this._getXLimit();
-	    //this.state.currYIdx = this._getYLimit();
-	       this.state.currYIdx = this.state.xAxisRender.itemCount();
-    	       this.state.currYIdx = this.state.yAxisRender.itemCount();
+	       this.state.currXIdx = this.state.xAxisRender._itemCount();
+    	       this.state.currYIdx = this.state.yAxisRender._itemCount();
 		this._createColorScale();
 	},
 
@@ -416,7 +433,7 @@ var AxisGroup = function()  {
 	_reDraw: function() {
 	    if (this.state.phenoLength !== 0 && this.state.filteredModelData.length !== 0){
 		//var displayCount = this._getYLimit();
-		var displayCount = this.state.yAxisRender.itemCount();
+		var displayCount = this.state.yAxisRender._itemCount();
 
 			this._setComparisonType();
 			this._initCanvas();
@@ -474,23 +491,6 @@ var AxisGroup = function()  {
 		}
 	},
 
-	// Returns the correct limit amount for the X axis based on axis position
-	_getXLimit: function () {
-		if (this.state.invertAxis){
-			return this.state.phenoDisplayCount;
-		} else {
-			return this.state.modelDisplayCount;
-		}
-	},
-
-	// Returns the correct limit amount for the Y axis based on axis position
-	_getYLimit: function () {
-		if (this.state.invertAxis){
-			return this.state.modelDisplayCount;
-		} else {
-			return this.state.phenoDisplayCount;
-		}
-	},
 
 	/* dummy option procedures as per 
 	 * http://learn.jquery.com/jquery-ui/widget-factory/how-to-use-the-widget-factory/
@@ -550,10 +550,8 @@ var AxisGroup = function()  {
 		var mHeight = self.state.heightOfSingleModel;
 		// create a blank grid to match the size of the phenogrid grid
 		var data = [];
-		//var rowCt = self._getYLimit();
-   	        //var colCt = self._getXLimit();
-   	        var rowCt = self.state.yAxisRender.itemCount();
-   	        var colCt = self.state.xAxisRender.itemCount();
+   	        var rowCt = self.state.yAxisRender._itemCount();
+   	        var colCt = self.state.xAxisRender._itemCount();
 	     
 
 		for (var k = 0; k < rowCt; k++){
@@ -594,10 +592,8 @@ var AxisGroup = function()  {
 	_createOverviewSection: function() {
 		var self = this;
 		var axisStatus = this.state.invertAxis;
-		//var yCount = self._getYLimit();
-	    //var xCount = self._getXLimit();
-	    var yCount = self.state.yAxisRender.itemCount();
-	    var xCount = self.state.xAxisRender.itemCount();
+	    var yCount = self.state.yAxisRender._itemCount();
+	    var xCount = self.state.xAxisRender._itemCount();
 		var startYIdx = this.state.currYIdx - yCount;
 		var startXIdx = this.state.currXIdx - xCount;
 
@@ -615,7 +611,7 @@ var AxisGroup = function()  {
 
 		// size of the entire region - it is a square
 		var overviewRegionSize = self.state.globalViewSize;
-		if (this.state.yAxis.size() < yCount) {
+		if (this.state.yAxisRender._axisSize() < yCount) {
 			overviewRegionSize = self.state.reducedGlobalViewSize;
 		}
 
@@ -663,10 +659,10 @@ var AxisGroup = function()  {
 				return self._getColorForModelValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
 			});
 
-		var lastYId = self._returnID(this.state.yAxis,yCount - 1);
-		var lastXId = self._returnID(this.state.xAxis,xCount - 1);
-		var startYId = self._returnID(this.state.yAxis,startYIdx);
-		var startXId = self._returnID(this.state.xAxis,startXIdx);
+     	        var lastYId = self._returnID(this.state.yAxisRender._itemHash(),yCount - 1);
+	    var lastXId = self._returnID(this.state.xAxisRender._itemHash(),xCount - 1);
+   	        var startYId = self._returnID(this.state.yAxisRender._itemHash(),startYIdx);
+	    var startXId = self._returnID(this.state.xAxisRender._itemHash(),startXIdx);
 
 		var selectRectX = self.state.smallXScale(startXId);
 		var selectRectY = self.state.smallYScale(startYId);
@@ -873,9 +869,9 @@ var AxisGroup = function()  {
 		var self = this;
 		var sortDataList = [];
 		var mods = [];
-		sortDataList = self._getSortedIDList(self.state.yAxis.entries());
+   	        sortDataList = self._getSortedIDList(self.state.yAxisRender._itemHash().entries());
 
-		mods = self._getSortedIDList(self.state.xAxis.entries());
+	    mods = self._getSortedIDList(self.state.xAxisRender._itemHash().entries());
 
 		this.state.smallYScale = d3.scale.ordinal()
 			.domain(sortDataList.map(function (d) {return d; }))
@@ -987,15 +983,13 @@ var AxisGroup = function()  {
 		var axis_idx = 0;
 		var sortedYArray = [];
 
-	   // var	startYIdx = this.state.currYIdx - this._getYLimit();
-	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.itemCount();
+	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender._itemCount();
 		var	displayYLimiter = this.state.currYIdx;
-	    //var	startXIdx = this.state.currXIdx - this._getXLimit();
-	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.itemCount();
+	    var startXIdx = this.state.currXIdx - this.state.xAxisRender._itemCount();
 		var	displayXLimiter = this.state.currXIdx;
 
-		this.state.filteredYAxis = self._filterListHash(this.state.yAxis,startYIdx,displayYLimiter);
-		this.state.filteredXAxis = self._filterListHash(this.state.xAxis,startXIdx,displayXLimiter);
+	    this.state.filteredYAxis = self._filterListHash(this.state.yAxisRender._itemHash(),startYIdx,displayYLimiter);
+	    this.state.filteredXAxis = self._filterListHash(this.state.xAxisRender._itemHash(),startXIdx,displayXLimiter);
 
 		sortedYArray = self._getSortedIDListStrict(self.state.filteredYAxis.entries());
 
@@ -1299,9 +1293,9 @@ var AxisGroup = function()  {
 
 	// Sets the correct position for the value on the yAxis on where it belongs in the grid/axis
 	_setYPosHash: function(key,ypos) {
-		var values = this.state.yAxis.get(key);
+  	        var values = this.state.yAxisRender._itemHash().get(key);
 		values.ypos = ypos;
-		this.state.yAxis.put(key,values);
+	    this.state.yAxisRender._itemHash().put(key,values);
 	},
 
 	// Updates the count & sum values used for sorting
@@ -1324,11 +1318,11 @@ var AxisGroup = function()  {
 
 	// Returns axis data from a ID of models or phenotypes
 	_getAxisData: function(key) {
-		if (this.state.yAxis.containsKey(key)){
-			return this.state.yAxis.get(key);
+	        if (this.state.yAxisRender._itemHash().containsKey(key)){
+		    return this.state.yAxisRender._itemHash().get(key);
 		}
-		else if (this.state.xAxis.containsKey(key)){
-			return this.state.xAxis.get(key);
+  	        else if (this.state.xAxisRender._itemHash().containsKey(key)){
+		    return this.state.xAxisRender._itemHash().get(key);
 		}
 		else { return false; }
 	},
@@ -1836,7 +1830,7 @@ var AxisGroup = function()  {
 		var self = this;
 		var info = self._getAxisData(data);
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.itemCount();
+	    var displayCount = self.state.yAxisRender._itemCount();
 		var concept = self._getConceptId(data);
 		//console.log("selecting x item.."+concept);
 		var appearanceOverrides;
@@ -2155,7 +2149,7 @@ var AxisGroup = function()  {
 		}
 		var wdt = this.state.axis_pos_list[1] + ((this.state.axis_pos_list[2] - this.state.axis_pos_list[1])/2);
 	    //var displayCount = this._getYLimit();
-	    var displayCount = this.state.yAxisRender.itemCount();
+	    var displayCount = this.state.yAxisRender._itemCount();
 		var hgt = displayCount * 10 + this.state.yoffset;
 		var yv, wv;
 
@@ -2375,10 +2369,8 @@ var AxisGroup = function()  {
 		var hwidthAndGap = self.state.widthOfSingleModel;
 		var totCt = 0;
 		var parCt = 0;
-		//var displayCount = self._getYLimit();
-	    //var displayCountX = self._getXLimit();
-	    var displayCount = self.state.yAxisRender.itemCount();
-	    var displayCountX = self.state.xAxisRender.itemCount();
+	    var displayCount = self.state.yAxisRender._itemCount();
+	    var displayCountX = self.state.xAxisRender._itemCount();
 
 		// Have temporarly until fix for below during Axis Flip
 		if (self.state.targetSpeciesName == "Overview"){
@@ -2456,7 +2448,7 @@ var AxisGroup = function()  {
 	_highlightIntersection: function(curr_data, obj){
 		var self = this;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.itemCount();
+	    var displayCount = self.state.yAxisRender._itemCount();
 		// Highlight Row
 		var highlight_rect = self.state.svg.append("svg:rect")
 			.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
@@ -2521,8 +2513,8 @@ var AxisGroup = function()  {
 	 * Movecount is an integer and can be either positive or negative
 	 */
 	_updateModel: function(newXPos, newYPos){
-		var xSize = this.state.xAxis.size();
-		var ySize = this.state.yAxis.size();
+		var xSize = this.state.xAxisRender._axisSize();
+		var ySize = this.state.yAxisRender._axisSize();
 
 		if (newXPos > xSize){
 			this.state.currXIdx = xSize;
@@ -2596,7 +2588,7 @@ var AxisGroup = function()  {
 		var modelLineGap = 30;
 		var lineY = this.state.yoffset + modelLineGap;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.itemCount();
+	    var displayCount = self.state.yAxisRender._itemCount();
 		//this.state.svg.selectAll("path.domain").remove();
 		//this.state.svg.selectAll("text.scores").remove();
 		//this.state.svg.selectAll("#specieslist").remove();
@@ -2739,7 +2731,7 @@ var AxisGroup = function()  {
 		var self = this;
 		this._buildAxisPositionList();
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.itemCount();
+	    var displayCount = self.state.yAxisRender._itemCount();
 
 		var gridHeight = displayCount * self.state.heightOfSingleModel + 10;
 		if (gridHeight < self.state.minHeight) {
@@ -3562,7 +3554,7 @@ var AxisGroup = function()  {
 			this._rebuildModelHash();
 
 			this.state.modelLength = this.state.modelListHash.size();
-			this._setAxisValues();
+			//this._setAxisValues();
 
 			console.log("updating display...");
 			this._processDisplay(); //'updateModel');
@@ -3590,7 +3582,7 @@ var AxisGroup = function()  {
 			this._rebuildModelHash();
 			this.state.modelLength = this.state.modelListHash.size();
 
-			this._setAxisValues();
+//			this._setAxisValues();
 			this._processDisplay();
 
 			// update the expanded flag
