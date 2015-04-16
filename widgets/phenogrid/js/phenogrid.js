@@ -132,6 +132,7 @@ var AxisGroup = function()  {
 		xOffsetOver: 20,
 		baseYOffset: 150,
 		faqImgSize: 15,
+		invertAxis: false,
 		dummyModelName: "dummy",
 		simServerURL: "",  // URL of the server for similarity searches
 		preloadHPO: false	// Boolean value that allows for preloading of all HPO data at start.  If false, the user will have to manually select what HPO relations to load via hoverbox.
@@ -143,7 +144,6 @@ var AxisGroup = function()  {
 		simServerURL: "",  // URL of the server for similarity searches
 		simSearchQuery: "/simsearch/phenotype?input_items=",
 		selectedCalculation: 0,
-		invertAxis: false,
 		hpoDepth: 10,	// Numerical value that determines how far to go up the tree in relations.
 		hpoDirection: "out",	// String that determines what direction to go in relations.  Default is "out".
 		hpoTreeAmounts: 1,	// Allows you to decide how many HPO Trees to render.  Once a tree hits the high-level parent, it will count it as a complete tree.  Additional branchs or seperate trees count as seperate items
@@ -381,10 +381,27 @@ var AxisGroup = function()  {
 		this._adjustPhenotypeCount();
 	        this._adjustModelCount();
 
+	        this._createAxisRenderingGroups();
+	    
+	       this.state.currXIdx = this.state.xAxisRender._itemCount();
+    	       this.state.currYIdx = this.state.yAxisRender._itemCount();
+		this._createColorScale();
+	},
+
+
+	    /* create the groups to contain the rendering 
+	       information for x and y axes. Use already loaded data
+	       in various hashes, etc. to create objects containing
+	       information for axis rendering. Then, switch source and target
+	       groups to be x or y depending on "flip axis" choice*/
+        _createAxisRenderingGroups: function() {
+	    
 	        /*** Build axis group here. */
 	        /* remember, source = phenotype and target=model */
        	         var self = this;
 
+	    /* only do this if the group doesn't exist - don't
+	       recreate on reload */
 	    if (typeof (this.state.sourceAxis) == 'undefined') {
 	        this.state.sourceAxis = {
 		    _itemCount: function() {
@@ -399,6 +416,9 @@ var AxisGroup = function()  {
 		};
 	    }
 
+	    /* this should never be true if above test is false,
+	       (ie, if sourceAxis is undefined), 
+	       but just in case  */
 	    if (typeof(this.state.targetAxis) == 'undefined') {
 	        this.state.targetAxis = {
 		    _itemCount: function() {
@@ -413,16 +433,24 @@ var AxisGroup = function()  {
 		};
 	    }
 
-	    if (typeof(self.state.xAxisRender) == 'undefined' || typeof(self.state.yAxisRender) == 'undefined') {
-	        self.state.xAxisRender = this.state.targetAxis;
-	        self.state.yAxisRender = this.state.sourceAxis;
+	    /* again, these should not be undefined if the others weren't */
+	    if (typeof(self.state.xAxisRender) == 'undefined' 
+		|| typeof(self.state.yAxisRender) == 'undefined') {
+		self._setAxisRenderers();
 	    }
-
-	    
-	       this.state.currXIdx = this.state.xAxisRender._itemCount();
-    	       this.state.currYIdx = this.state.yAxisRender._itemCount();
-		this._createColorScale();
 	},
+
+       _setAxisRenderers: function() {
+	   var self= this;
+
+	   if (self.state.invertAxis) {
+	       self.state.xAxisRender = self.state.sourceAxis;
+	       self.state.yAxisRender= self.state.targetAxis;
+	   } else {
+	       self.state.xAxisRender = self.state.targetAxis;
+	       self.state.yAxisRender= self.state.sourceAxis;
+	   }
+       },
 
 	_loadSpinner: function() {
 		var element =$('<div><h3>Loading...</h3><div class="cube1"></div><div class="cube2"></div></div>');
@@ -3012,13 +3040,7 @@ var AxisGroup = function()  {
 
 		$( "#axisflip" ).click(function(d) {
 		    self.state.invertAxis = !self.state.invertAxis;
-		    if (self.state.invertAxis) {
-			self.state.xAxisRender = self.state.sourceAxis;
-			self.state.yAxisRender= self.state.targetAxis;
-		    } else {
-			self.state.xAxisRender = self.state.targetAxis;
-			self.state.yAxisRender= self.state.sourceAxis;
-		    }
+		    self._setAxisRenderers();
    		    self._resetSelections("axisflip");
 		});
 
