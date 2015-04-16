@@ -683,12 +683,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.attr("fill", function(d) {
 				var colorID;
 			        colorID=d[colorSelector];
-				/*  if (axisStatus){
-					colorID = d.yID;
-			 	} else {
-					colorID = d.xID;
-				} */
-				return self._getColorForModelValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
+				return self._getColorForModelValue(self,
+								   self._getAxisData(colorID).species,
+								   d.value[self.state.selectedCalculation]);
 			});
 
      	        var lastYId = self._returnID(this.state.yAxisRender.getItemHash(),yCount - 1);
