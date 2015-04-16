@@ -50,6 +50,9 @@
  */
 var url = document.URL;
 
+
+// cell data are the contents of each of the cells in the grid.
+
 // Creation of cellDataPoint object
 function cellDataPoint(x,y) {
 	this.xID = x;
@@ -659,7 +662,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		self._createSmallScales(overviewRegionSize);
 
 		// add the items using smaller rects
-		var cellData = self._mergeHashEntries(self.state.modelDataHash);
+		var cellData = self._mergeHashEntries(self.state.cellDataHash);
 
 		var model_rects = this.state.svg.selectAll(".mini_models")
 			.data(cellData, function(d) {return d.yID + d.xID;});
@@ -1067,8 +1070,10 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		this.state.expandedHash = new Hashtable();  // for cache of genotypes
 		this.state.phenotypeListHash = new Hashtable();
 		this.state.modelListHash = new Hashtable();
-		this.state.modelDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
-
+	    
+	        // cellDataHash is the main table that contains the information on each relationship/cell in the grid.
+		this.state.cellDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
+	    
 		// [vaa12] determine if is wise to preload datasets for the three species and then build overview from this
 		// At time being, overview is made up of three calls, which it repeats these calls with a larger limit if you decided to view single species
 		// Might be more efficent to load those three, cache them and then make an overview dataset and cache that as well.
@@ -1273,7 +1278,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 					}
 				}
 
-				// Setting modelDataHash
+				// Setting cellDataHash
 				if (this.state.invertAxis){
 					modelPoint = new cellDataPoint(this._getConceptId(curr_row.a.id), this._getConceptId(modelID));
 				} else {
@@ -1281,7 +1286,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 				}
 				this._updateSortVals(this._getConceptId(curr_row.a.id), parseFloat(curr_row.lcs.IC));
 				hashData = {"value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": this._getConceptId(curr_row.lcs.id), "subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, "b_id": this._getConceptId(curr_row.b.id), "b_IC": parseFloat(curr_row.b.IC)};
-				this.state.modelDataHash.put(modelPoint, hashData);
+				this.state.cellDataHash.put(modelPoint, hashData);
 			}
 		}
 	},
@@ -1340,8 +1345,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 	// Returns values from a point on the grid
 	_getCellData: function(point) {
-		if (this.state.modelDataHash.containsKey(point)){
-			return this.state.modelDataHash.get(point);
+		if (this.state.cellDataHash.containsKey(point)){
+			return this.state.cellDataHash.get(point);
 		} else {
 			return false;
 		}
@@ -1379,7 +1384,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	// Creates the filteredModelData data structure
 	_filterHashTables: function () {
 		var newFilteredModel = [];
-		var currentCellData = this.state.modelDataHash.entries();
+		var currentCellData = this.state.cellDataHash.entries();
 
 		for (var i in currentCellData){
 			if (this.state.filteredXAxis.containsKey(currentCellData[i][0].xID) && this.state.filteredYAxis.containsKey(currentCellData[i][0].yID)){
@@ -1743,9 +1748,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		link_labels.style("text-decoration", "none");
 	},
 
-	// Will return all partial matches in the modelDataHash structure.  Good for finding rows/columns of data
+	// Will return all partial matches in the cellDataHash structure.  Good for finding rows/columns of data
 	_getMatchingModels: function (key) {
-		var cellKeys = this.state.modelDataHash.keys();
+		var cellKeys = this.state.cellDataHash.keys();
 		var matchingKeys = [];
 		for (var i in modelKeys){
 			if (key == cellKeys[i].yID || key == cellKeys[i].xID){
@@ -2520,7 +2525,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 		// This is for the new "Overview" target option 
 		if (this.state.targetSpeciesName == "Overview"){
-			data = this.state.modelDataHash.keys();
+			data = this.state.cellDataHash.keys();
 		} else {
 			data = self.state.filteredModelData;
 		}
@@ -2856,7 +2861,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
  
 	_addGradients: function() {
 		var self = this;
-		var cellData = this.state.modelDataHash.values();
+		var cellData = this.state.cellDataHash.values();
 		var temp_data = cellData.map(function(d) { return d.value[self.state.selectedCalculation];} );
 		var diff = d3.max(temp_data) - d3.min(temp_data);
 		var y1;
@@ -3713,7 +3718,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	_rebuildModelHash: function() {
 		// [vaa12] needs updating based on changes in finishLoad and finishOverviewLoad
 		this.state.phenotypeListHash = new Hashtable();
-		this.state.modelDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
+		this.state.cellDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
 		var modelPoint, hashData;
 		var y = 0;
 
@@ -3726,7 +3731,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 				y++;
 			}
 
-			// Setting modelDataHash
+			// Setting cellDataHash
 			if (this.state.invertAxis){
 				modelPoint = new cellDataPoint(this.state.modelData[i].id_a, this.state.modelData[i].model_id);
 			} else {
@@ -3734,7 +3739,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			}
 			this._updateSortVals(this.state.modelData[i].id_a, this.state.modelData[i].subsumer_IC);
 			hashData = {"value": this.state.modelData[i].value, "subsumer_label": this.state.modelData[i].subsumer_label, "subsumer_id": this.state.modelData[i].subsumer_id, "subsumer_IC": this.state.modelData[i].subsumer_IC, "b_label": this.state.modelData[i].label_b, "b_id": this.state.modelData[i].id_b, "b_IC": this.state.modelData[i].IC_b};
-			this.state.modelDataHash.put(modelPoint, hashData);
+			this.state.cellDataHash.put(modelPoint, hashData);
 		}
 	},
 
