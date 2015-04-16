@@ -370,7 +370,6 @@ var AxisGroup = function()  {
 
 		this.state.phenoLength = this.state.phenotypeListHash.size();
 		this.state.modelLength = this.state.modelListHash.size();
-		this._setAxisValues();
 
 		// shorthand for top of model region
 		this.state.yModelRegion = this.state.yoffsetOver + this.state.yoffset;
@@ -382,6 +381,7 @@ var AxisGroup = function()  {
 	        this._adjustModelCount();
 
 	        this._createAxisRenderingGroups();
+		//this._setAxisValues();
 	    
 	       this.state.currXIdx = this.state.xAxisRender._itemCount();
     	       this.state.currYIdx = this.state.yAxisRender._itemCount();
@@ -604,7 +604,7 @@ var AxisGroup = function()  {
 	},
 
 	// Sets the X & Y axis hash datastructures correctly based on axis position
-	_setAxisValues: function() {
+/*	_setAxisValues: function() {
 		// By default, X = Models and Y = Phenotypes.  Same goes for xID and yID in the modelData structures
 		// This is reversed for when invertAxis is true
 		if (this.state.invertAxis){
@@ -614,7 +614,7 @@ var AxisGroup = function()  {
 			this.state.xAxis = this.state.modelListHash;
 			this.state.yAxis = this.state.phenotypeListHash;
 		}
-	},
+	},*/
 
 	// For the selection area, see if you can convert the selection to the idx of the x and y then redraw the bigger grid 
 	_createOverviewSection: function() {
