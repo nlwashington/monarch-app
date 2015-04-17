@@ -764,7 +764,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 					var jj = self._invertOverviewDragPosition(self.state.smallYScale,newY);
 					var newYPos = jj + yCount;
 
-					self._updateModel(newXPos, newYPos);
+					self._updateCells(newXPos, newYPos);
 		}));
 		// set this back to 0 so it doesn't affect other rendering
 	},
@@ -2541,7 +2541,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	 * Change the list of phenotypes and filter the models accordingly. The 
 	 * Movecount is an integer and can be either positive or negative
 	 */
-	_updateModel: function(newXPos, newYPos){
+	_updateCells: function(newXPos, newYPos){
 		var xSize = this.state.xAxisRender.getAxisSize();
 		var ySize = this.state.yAxisRender.getAxisSize();
 
@@ -3580,7 +3580,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			//this._setAxisValues();
 
 			console.log("updating display...");
-			this._processDisplay(); //'updateModel');
+			this._processDisplay(); //'updateCells');
 
 			success = true;
 		} else {
