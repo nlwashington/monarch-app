@@ -491,7 +491,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			this._addGradients();
 			
 			this._createGridlines();
-			this._createModelRects();
+			this._createCellRects();
 			this._highlightSpecies();	
 			
 			this._createOverviewSection();
@@ -1749,7 +1749,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	_getMatchingModels: function (key) {
 		var cellKeys = this.state.cellDataHash.keys();
 		var matchingKeys = [];
-		for (var i in modelKeys){
+		for (var i in cellKeys){
 			if (key == cellKeys[i].yID || key == cellKeys[i].xID){
 				matchingKeys.push(cellKeys[i]);
 			}
@@ -2311,18 +2311,18 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	 * select the rect objects related to the model and append the class to them.
 	 * something like this: $( "p" ).addClass( "myClass yourClass" );
 	 */
-	_createModelRects: function() {
+	_createCellRects: function() {
 		var self = this;
 		var data = this.state.filteredModelData;
 
 
 	        var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
 		var rectTranslation = "translate(" + ((this.state.textWidth + this.state.xOffsetOver + 30) + 4) + "," + (self.state.yoffsetOver + 15)+ ")";
-		var model_rects = this.state.svg.selectAll(".models")
+		var cell_rects = this.state.svg.selectAll(".models")
 			.data( data, function(d) {
 				return d.xID + d.yID;
 			});
-		model_rects.enter()
+		cell_rects.enter()
 			.append("rect")
 			.attr("transform",rectTranslation)
 			.attr("class", function(d) { 
@@ -2375,7 +2375,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			return self._getColorForModelValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
 		});
 
-		model_rects.transition()
+		cell_rects.transition()
 			.delay(20)
 			.style('opacity', '1.0')
 			.attr("y", function(d) {
@@ -2384,7 +2384,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.attr("x", function(d) { 
 				return self.state.xScale(d.xID);
 			});
-		model_rects.exit().transition()
+		cell_rects.exit().transition()
 			.style('opacity', '0.0')
 			.remove();
 	},
@@ -2563,7 +2563,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		this._createXRegion();
 		this._createYRegion();
 		this._highlightSpecies();
-		this._createModelRects();
+		this._createCellRects();
 
 		/*
 		 * this must be initialized here after the _createModelLabels, or the mouse events don't get
