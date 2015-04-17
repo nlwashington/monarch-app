@@ -181,9 +181,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		simServerURL: "",  // URL of the server for similarity searches
 		simSearchQuery: "/simsearch/phenotype?input_items=",
 		selectedCalculation: 0,
-		hpoDepth: 10,	// Numerical value that determines how far to go up the tree in relations.
-		hpoDirection: "out",	// String that determines what direction to go in relations.  Default is "out".
-		hpoTreeAmounts: 1,	// Allows you to decide how many HPO Trees to render.  Once a tree hits the high-level parent, it will count it as a complete tree.  Additional branchs or seperate trees count as seperate items
+		ontologyDepth: 10,	// Numerical value that determines how far to go up the tree in relations.
+		ontologyDirection: "out",	// String that determines what direction to go in relations.  Default is "out".
+		ontologyTreeAmounts: 1,	// Allows you to decide how many HPO Trees to render.  Once a tree hits the high-level parent, it will count it as a complete tree.  Additional branchs or seperate trees count as seperate items
 							// [vaa12] DO NOT CHANGE UNTIL THE DISPLAY HPOTREE FUNCTIONS HAVE BEEN CHANGED. WILL WORK ON SEPERATE TREES, BUT BRANCHES MAY BE INACCURATE
 		selectedSort: "Frequency",
 		targetSpeciesName : "Overview",
@@ -1960,23 +1960,23 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 		for (var j in edges){
 			// Currently only allows subClassOf relations.  When new relations are introducted, it should be simple to implement
-			if (edges[j].pred == "subClassOf" && this.state.hpoTreesDone != this.state.hpoTreeAmounts){
+			if (edges[j].pred == "subClassOf" && this.state.ontologyTreesDone != this.state.ontologyTreeAmounts){
 				if (edges[j].sub == id){
-					if (this.state.hpoTreeHeight < nextLevel){
-						this.state.hpoTreeHeight++;
+					if (this.state.ontologyTreeHeight < nextLevel){
+						this.state.ontologyTreeHeight++;
 					}
 					nextResult = this.buildHPOTree(edges[j].obj, edges, nextLevel);
 					if (nextResult === ""){
-						// Bolds the 'top of the line' to see what is the root or closet to the root.  It will hit this point either when it reaches the hpoDepth or there is no parents
-						results += "<br/>" + this._buildIndentMark(this.state.hpoTreeHeight - nextLevel) + "<strong>" + this._buildHPOHyperLink(edges[j].obj) + "</strong>";
-						this.state.hpoTreesDone++;
+						// Bolds the 'top of the line' to see what is the root or closet to the root.  It will hit this point either when it reaches the ontologyDepth or there are no parents
+						results += "<br/>" + this._buildIndentMark(this.state.ontologyTreeHeight - nextLevel) + "<strong>" + this._buildHPOHyperLink(edges[j].obj) + "</strong>";
+						this.state.ontologyTreesDone++;
 					} else {
-						results += nextResult + "<br/>" + this._buildIndentMark(this.state.hpoTreeHeight - nextLevel) + this._buildHPOHyperLink(edges[j].obj);
+						results += nextResult + "<br/>" + this._buildIndentMark(this.state.ontologyTreeHeight - nextLevel) + this._buildHPOHyperLink(edges[j].obj);
 					}
 					
 					if (level === 0){
-						results += "<br/>" + this._buildIndentMark(this.state.hpoTreeHeight) + this.state.hpoCacheLabels.get(id) + "<br/>";
-						this.state.hpoTreeHeight = 0;
+						results += "<br/>" + this._buildIndentMark(this.state.ontologyTreeHeight) + this.state.hpoCacheLabels.get(id) + "<br/>";
+						this.state.ontologyTreeHeight = 0;
 					}
 				}
 			}
@@ -3355,8 +3355,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		// this code refreshes the stickytooltip so that tree appears instantly
 		var hpoCached = this.state.hpoCacheHash.get(id.replace("_", ":"));
 		if (hpoCached !== null){
-			this.state.hpoTreesDone = 0;
-			this.state.hpoTreeHeight = 0;
+			this.state.ontologyTreesDone = 0;
+			this.state.ontologyTreeHeight = 0;
 			var info = this._getAxisData(id);
 			var type = this._getIDType(id);
 			var hrefLink = "<a href=\"" + this.state.serverURL+"/phenotype" + type +"/"+ id.replace("_", ":") + "\" target=\"_blank\">" + info.label + "</a>";
@@ -3389,9 +3389,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		// check cached hashtable first 
 		var idClean = id.replace("_", ":");
 		var HPOInfo = this.state.hpoCacheHash.get(idClean);
-		var direction = this.state.hpoDirection;
+		var direction = this.state.ontologyDirection;
 		var relationship = "subClassOf";
-		var depth = this.state.hpoDepth;
+		var depth = this.state.ontologyDepth;
 		var nodes, edges;
 		///neighborhood/HP_0003273/2/out/subClassOf.json
 		if (HPOInfo === null) {
