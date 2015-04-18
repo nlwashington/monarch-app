@@ -15,7 +15,7 @@ semantic.cache
 ringojs-0.9
 *~
 .emacs.*
-log
+log*
 .idea/**
 *.iml
 *.ipr
