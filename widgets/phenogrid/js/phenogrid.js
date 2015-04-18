@@ -469,7 +469,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	},
 
 	_reDraw: function() {
-	    if (this.state.phenoLength !== 0 && this.state.filteredModelData.length !== 0){
+	    if (this.state.phenoLength !== 0 && this.state.filteredCellData.length !== 0){
 		//var displayCount = this._getYLimit();
 		var displayCount = this.state.yAxisRender.getItemCount();
 
@@ -664,18 +664,18 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		// add the items using smaller rects
 		var cellData = self._mergeHashEntries(self.state.cellDataHash);
 
-		var model_rects = this.state.svg.selectAll(".mini_models")
+		var cell_rects = this.state.svg.selectAll(".mini_cells")
 			.data(cellData, function(d) {return d.yID + d.xID;});
 		overviewX++;	// Corrects the gapping on the sides
 		overviewY++;
-		var modelRectTransform = "translate(" + overviewX +	"," + overviewY + ")";
+		var cellRectTransform = "translate(" + overviewX +	"," + overviewY + ")";
 
 	        var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
 
-		model_rects.enter()
+		cell_rects.enter()
 			.append("rect")
-			.attr("transform",modelRectTransform)
-			.attr("class", "mini_model")
+			.attr("transform",cellRectTransform)
+			.attr("class", "mini_cell")
 			.attr("y", function(d, i) { return self.state.smallYScale(d.yID) + linePad / 2;})
 			.attr("x", function(d) { return self.state.smallXScale(d.xID) + linePad / 2;})
 			.attr("width", linePad)
@@ -683,7 +683,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.attr("fill", function(d) {
 				var colorID;
 			        colorID=d[colorSelector];
-				return self._getColorForModelValue(self,
+				return self._getColorForCellValue(self,
 								   self._getAxisData(colorID).species,
 								   d.value[self.state.selectedCalculation]);
 			});
@@ -800,7 +800,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	},
 
 	// We only have 3 color,s but that will do for now
-	_getColorForModelValue: function(self,species,score) {
+	_getColorForCellValue: function(self,species,score) {
 		// This is for the new "Overview" target option
 		var selectedScale = self.state.colorScale[species][self.state.selectedCalculation];
 		return selectedScale(score);
@@ -1260,7 +1260,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	_loadDataForModel: function(modelID, newModelData) {
 		// data is an array of all model matches
 		var data = newModelData.matches;
-		var curr_row, lcs, modelPoint, hashData;
+		var curr_row, lcs, cellPoint, hashData;
 		if (typeof(data) !== 'undefined' && data.length > 0) {
 
 			for (var idx in data) {
@@ -1277,13 +1277,13 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 				// Setting cellDataHash
 				if (this.state.invertAxis){
-					modelPoint = new cellDataPoint(this._getConceptId(curr_row.a.id), this._getConceptId(modelID));
+					cellPoint = new cellDataPoint(this._getConceptId(curr_row.a.id), this._getConceptId(modelID));
 				} else {
-					modelPoint = new cellDataPoint(this._getConceptId(modelID), this._getConceptId(curr_row.a.id));
+					cellPoint = new cellDataPoint(this._getConceptId(modelID), this._getConceptId(curr_row.a.id));
 				}
 				this._updateSortVals(this._getConceptId(curr_row.a.id), parseFloat(curr_row.lcs.IC));
 				hashData = {"value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": this._getConceptId(curr_row.lcs.id), "subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, "b_id": this._getConceptId(curr_row.b.id), "b_IC": parseFloat(curr_row.b.IC)};
-				this.state.cellDataHash.put(modelPoint, hashData);
+				this.state.cellDataHash.put(cellPoint, hashData);
 			}
 		}
 	},
@@ -1378,19 +1378,19 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		return "unknown";
 	},
 
-	// Creates the filteredModelData data structure
+	// Creates the filteredCellData data structure
 	_filterHashTables: function () {
-		var newFilteredModel = [];
+		var newFilteredCell = [];
 		var currentCellData = this.state.cellDataHash.entries();
 
 		for (var i in currentCellData){
 			if (this.state.filteredXAxis.containsKey(currentCellData[i][0].xID) && this.state.filteredYAxis.containsKey(currentCellData[i][0].yID)){
 				currentCellData[i][1].yID = currentCellData[i][0].yID;
 				currentCellData[i][1].xID = currentCellData[i][0].xID;
-				newFilteredModel.push(currentCellData[i][1]);
+				newFilteredCell.push(currentCellData[i][1]);
 			}
 		}
-		this.state.filteredModelData = newFilteredModel;
+		this.state.filteredCellData = newFilteredCell;
 	},
 
 	// Filters down the axis hashtables based on what the limits are
@@ -1708,7 +1708,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 	_addLogoImage:	 function() { 
 		var start = 0;
-		if(this.state.filteredModelData.length < 30){
+		if(this.state.filteredCellData.length < 30){
 			// Magic Nums
 			start = 680;
 		} else { 
@@ -2204,7 +2204,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.html(htmltext);
 	},
 
-	_showModelData: function(d, obj) {
+	_showCellData: function(d, obj) {
 		var retData, prefix, modelLabel, phenoLabel;
 
 		var yInfo = this._getAxisData(d.yID); 
@@ -2238,7 +2238,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		for (var idx in this.state.similarityCalculation) {	
 			if (this.state.similarityCalculation[idx].calc === this.state.selectedCalculation) {
 				prefix = this.state.similarityCalculation[idx].label;
-				break;
+			break;
 			}
 		}
 
@@ -2313,7 +2313,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	 */
 	_createCellRects: function() {
 		var self = this;
-		var data = this.state.filteredModelData;
+		var data = this.state.filteredCellData;
 
 
 	        var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
@@ -2327,13 +2327,13 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.attr("transform",rectTranslation)
 			.attr("class", function(d) { 
 				var dConcept = (d.xID + d.yID);
-				var modelConcept = self._getConceptId(d.xID);
+				var cellConcept = self._getConceptId(d.xID);
 				// append the model id to all related items
 				if (d.value[self.state.selectedCalculation] > 0) {
 					var bla = self.state.svg.selectAll(".data_text." + dConcept);
-					bla.classed(modelConcept, true);
+					bla.classed(cellConcept, true);
 				}
-                            return "cells " + " " + modelConcept + " " + dConcept;
+                            return "cells " + " " + cellConcept + " " + dConcept;
 			})
 			.attr("y", function(d, i) {
 				return self._getAxisData(d.yID).ypos + self.state.yoffsetOver;
@@ -2365,7 +2365,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 					self._enableRowColumnRects(this);
 					self.state.currSelectedRect = this;
 				}
-			    self._showModelData(d, this);
+			    self._showCellData(d, this);
 			})
 			.on("mouseout", function(d) {
 				self._deselectData(data);
@@ -2373,7 +2373,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.style('opacity', '1.0')
 		.attr("fill", function(d) {
 			var colorID = d[colorSelector];
-			return self._getColorForModelValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
+			return self._getColorForCellValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
 		});
 
 		cell_rects.transition()
@@ -2462,10 +2462,10 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 	_enableRowColumnRects: function(curr_rect){
 	    var self = this;
-		var model_rects = self.state.svg.selectAll("rect.cells")
+		var cell_rects = self.state.svg.selectAll("rect.cells")
 			.filter(function (d) { return d.rowid == curr_rect.__data__.rowid;});
-		for (var i in model_rects[0]){
-			model_rects[0][i].parentNode.appendChild(model_rects[0][i]);
+		for (var i in cell_rects[0]){
+			cell_rects[0][i].parentNode.appendChild(cell_rects[0][i]);
 		}
 		var data_rects = self.state.svg.selectAll("rect.cells")
 			.filter(function (d) { return d.model_id == curr_rect.__data__.model_id;});
@@ -2524,7 +2524,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		if (this.state.targetSpeciesName == "Overview"){
 			data = this.state.cellDataHash.keys();
 		} else {
-			data = self.state.filteredModelData;
+			data = self.state.filteredCellData;
 		}
 		this.state.h = (data.length * 2.5);
 
@@ -2665,7 +2665,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 				}})
 			.style("font-weight","bold")
 			.style("fill",function(d) {
-				return self._getColorForModelValue(self,self._getAxisData(d).species,self._getAxisData(d).score);
+				return self._getColorForCellValue(self,self._getAxisData(d).species,self._getAxisData(d).score);
 			});
 
 			if (this.state.invertAxis){
@@ -3574,7 +3574,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			this.state.modelListHash = this._insertionModelList(modelInfo.d.pos, genoTypeList);
 
 			console.log("Rebuilding hashtables...");
-			this._rebuildModelHash();
+			this._rebuildCellHash();
 
 			this.state.modelLength = this.state.modelListHash.size();
 			//this._setAxisValues();
@@ -3602,7 +3602,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		if (cachedScores !== null && cachedScores.expanded) {
 			this.state.modelListHash = this._removalFromModelList(cachedScores);
 
-			this._rebuildModelHash();
+			this._rebuildCellHash();
 			this.state.modelLength = this.state.modelListHash.size();
 
 //			this._setAxisValues();
@@ -3712,7 +3712,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		return newModelList;
 	},
 
-	_rebuildModelHash: function() {
+	_rebuildCellHash: function() {
 		// [vaa12] needs updating based on changes in finishLoad and finishOverviewLoad
 		this.state.phenotypeListHash = new Hashtable();
 		this.state.cellDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
