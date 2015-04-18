@@ -158,8 +158,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			{prefix: "OMIM", apifragment: "disease"}],
 		defaultApiEntity: "gene",
 		tooltips: {},
-		widthOfSingleModel: 18,
-		heightOfSingleModel: 13,
+		widthOfSingleCell: 18,
+		heightOfSingleCell: 13,
 		yoffsetOver: 30,
 		overviewGridTitleXOffset: 340,
 		overviewGridTitleFaqOffset: 230,
@@ -479,7 +479,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 			this.state.svg
 				.attr("width", "100%")
-				.attr("height", displayCount * this.state.widthOfSingleModel);
+				.attr("height", displayCount * this.state.widthOfSingleCell);
 			var rectHeight = this._createRectangularContainers();
 
 			this._addPhenogridControls();
@@ -584,8 +584,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	// adds light gray gridlines to make it easier to see which row/column selected matches occur
 	_createGridlines: function() {
 		var self = this;
-		var mWidth = self.state.widthOfSingleModel;
-		var mHeight = self.state.heightOfSingleModel;
+		var mWidth = self.state.widthOfSingleCell;
+		var mHeight = self.state.heightOfSingleCell;
 		// create a blank grid to match the size of the phenogrid grid
 		var data = [];
    	        var rowCt = self.state.yAxisRender.getItemCount();
@@ -1882,7 +1882,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.attr("y", self.state.yoffset +2) 
 			.attr("class", "model_accent")
 			.attr("width", 15 * appearanceOverrides.offset)
-			.attr("height", (displayCount * self.state.heightOfSingleModel));
+			.attr("height", (displayCount * self.state.heightOfSingleCell));
 
 		// obj is try creating an ojbect with an attributes array including "attributes", but I may need to define getAttrbitues
 		// just create a temporary object to pass to the next method...
@@ -2318,7 +2318,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 	        var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
 		var rectTranslation = "translate(" + ((this.state.textWidth + this.state.xOffsetOver + 30) + 4) + "," + (self.state.yoffsetOver + 15)+ ")";
-		var cell_rects = this.state.svg.selectAll(".models")
+		var cell_rects = this.state.svg.selectAll(".cells")
 			.data( data, function(d) {
 				return d.xID + d.yID;
 			});
@@ -2333,7 +2333,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 					var bla = self.state.svg.selectAll(".data_text." + dConcept);
 					bla.classed(modelConcept, true);
 				}
-				return "models " + " " + modelConcept + " " + dConcept;
+                            return "cells " + " " + modelConcept + " " + dConcept;
 			})
 			.attr("y", function(d, i) {
 				return self._getAxisData(d.yID).ypos + self.state.yoffsetOver;
@@ -2344,7 +2344,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.attr("rx", "3")
 			.attr("ry", "3")
 			// I need to pass this into the function
-			.on("mouseover", function(d) {
+   		        .on("mouseover", function(d) {
+			    console.log("moused over..."+JSON.stringify(this));
 				this.parentNode.appendChild(this);
 				// if this column and row are selected, clear the column/row and unset the column/row flag
 				if (self.state.selectedColumn !== undefined && self.state.selectedRow !== undefined) {
@@ -2364,7 +2365,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 					self._enableRowColumnRects(this);
 					self.state.currSelectedRect = this;
 				}
-			self._showModelData(d, this);
+			    self._showModelData(d, this);
 			})
 			.on("mouseout", function(d) {
 				self._deselectData(data);
@@ -2394,8 +2395,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		var self = this;
 		var list = [];
 		var ct, width, height, borderStroke;
-		var vwidthAndGap = self.state.heightOfSingleModel;
-		var hwidthAndGap = self.state.widthOfSingleModel;
+		var vwidthAndGap = self.state.heightOfSingleCell;
+		var hwidthAndGap = self.state.widthOfSingleCell;
 		var totCt = 0;
 		var parCt = 0;
 	    var displayCount = self.state.yAxisRender.getItemCount();
@@ -2460,14 +2461,13 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	},
 
 	_enableRowColumnRects: function(curr_rect){
-		var self = this;
-
-		var model_rects = self.state.svg.selectAll("rect.models")
+	    var self = this;
+		var model_rects = self.state.svg.selectAll("rect.cells")
 			.filter(function (d) { return d.rowid == curr_rect.__data__.rowid;});
 		for (var i in model_rects[0]){
 			model_rects[0][i].parentNode.appendChild(model_rects[0][i]);
 		}
-		var data_rects = self.state.svg.selectAll("rect.models")
+		var data_rects = self.state.svg.selectAll("rect.cells")
 			.filter(function (d) { return d.model_id == curr_rect.__data__.model_id;});
 		for (var j in data_rects[0]){
 			data_rects[0][j].parentNode.appendChild(data_rects[0][j]);
@@ -2513,7 +2513,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.attr("y", self.state.yoffset + 2 )
 			.attr("class", "model_accent")
 			.attr("width", 12)
-			.attr("height", (displayCount * self.state.heightOfSingleModel));
+			.attr("height", (displayCount * self.state.heightOfSingleCell));
 	},
 
 	_updateAxes: function() {
@@ -2622,7 +2622,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		//this.state.svg.selectAll("text.scores").remove();
 		//this.state.svg.selectAll("#specieslist").remove();
 
-		var gridHeight = displayCount * self.state.heightOfSingleModel + 10;
+		var gridHeight = displayCount * self.state.heightOfSingleCell + 10;
 		if (gridHeight < self.state.minHeight) {
 			gridHeight = self.state.minHeight;
 		}
@@ -2640,7 +2640,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	_createTextScores: function() {
 		var self = this;
 		var list = [];
-		var xWidth = self.state.widthOfSingleModel;
+		var xWidth = self.state.widthOfSingleCell;
 
 		if (!this.state.invertAxis) {
 			list = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
@@ -2762,7 +2762,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	    //var displayCount = self._getYLimit();
 	    var displayCount = self.state.yAxisRender.getItemCount();
 
-		var gridHeight = displayCount * self.state.heightOfSingleModel + 10;
+		var gridHeight = displayCount * self.state.heightOfSingleCell + 10;
 		if (gridHeight < self.state.minHeight) {
 			gridHeight = self.state.minHeight;
 		}
@@ -2793,11 +2793,11 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 	// Build out the positions of the 3 boxes
 	_buildAxisPositionList: function() {
-		// For Overview of Organisms 0 width = ((multiOrganismCt*2)+2) *this.state.widthOfSingleModel	
+		// For Overview of Organisms 0 width = ((multiOrganismCt*2)+2) *this.state.widthOfSingleCell	
 		// Add two extra columns as separators
 		this.state.axis_pos_list = [];
 		// calculate width of model section
-		this.state.modelWidth = this.state.filteredXAxis.size() * this.state.widthOfSingleModel;
+		this.state.modelWidth = this.state.filteredXAxis.size() * this.state.widthOfSingleCell;
 		// add an axis for each ordinal scale found in the data
 		for (var i = 0; i < 3; i++) {
 			// move the last accent over a bit for the scrollbar
