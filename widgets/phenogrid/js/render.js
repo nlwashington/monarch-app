@@ -71,8 +71,8 @@ phenotype: function(tooltip) {
 		hpoExpand = true;
 
 		//HACKISH, BUT WORKS FOR NOW.  LIMITERS THAT ALLOW FOR TREE CONSTRUCTION BUT DONT NEED TO BE PASSED BETWEEN RECURSIONS
-		tooltip.parent.state.hpoTreesDone = 0;
-		tooltip.parent.state.hpoTreeHeight = 0;
+		tooltip.parent.state.ontologyTreesDone = 0;
+		tooltip.parent.state.ontologyTreeHeight = 0;
 		var hpoTree = "<div id='hpoDiv'>" + tooltip.parent.buildHPOTree(tooltip.id.replace("_", ":"), hpoCached.edges, 0) + "</div>";
 		if (hpoTree == "<br/>"){
 			hpoData += "<em>No HPO Data Found</em>";
