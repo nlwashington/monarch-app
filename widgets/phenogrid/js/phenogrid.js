@@ -104,9 +104,229 @@ AxisGroup.prototype.itemsPut = function(key,val) {
     this.itemsHash.put(key,val);
 };
 
+//***************************************
+// TEMP LOCATION OF DATASTORE
+var DataManager = function(parent, serverUrl) {
+	this.parent = parent;
+	this.expandedCache = [];   
+	this.sourceHash = new Hashtable();
+	this.targetHash = new Hashtable();
+	this.cellDataHash = new Hashtable();
+	this.owlsimsData;			// raw owlsim
+	this.simServerURL = serverUrl;
+	this.origSourceList;
+};
+
+DataManager.prototype = {
+	constructor: DataManager,
+	init: function() {
+		this.sourceHash = new Hashtable();   // phenoList
+		this.targetHash = new Hashtable();	 // modelList
+	},
+	getSourceElement: function (key) {
+		return this.sourceHash.get(key);
+	},	
+	putSourceEntity: function (key,values) {
+		return this.sourceHash.put(key,values);
+	},
+	getSourceEntries: function () {
+		return this.sourceHash.entries();
+	},
+	getSources: function () {
+		return this.sourceHash;
+	},	
+	getSourceKeys: function () {
+		return this.sourceHash.keys();
+	},
+	sourcesContains: function (key) {
+		return this.sourceHash.containsKey(key);
+	},
+	getTargets: function () {
+		return this.targetHash;
+	},
+	getTargetElement: function (key) {
+		return this.targetHash.get(key);
+	},	
+	getTargetEntries: function () {
+		return this.targetHash.entries();
+	},
+	getTargetKeys: function () {
+		return this.targetHash.keys();
+	},
+	targetsContains: function (key) {
+		return this.targetHash.containsKey(key);
+	},	
+	getCellEntries: function () {
+		return this.cellDataHash.entries();
+	},
+	getCellKeys: function () {
+		return this.cellDataHash.keys();
+	},
+	getOriginalSource: function() {
+		return this.qrySourceList;
+	},
+	fetch: function(qrySourceList, speciesName) {
+		var res;
+    	var url = this.simServerURL + this.parent.state.simSearchQuery + qrySourceList.join("+");
+
+	    if (typeof(speciesName) !== 'undefined'  && speciesName != 'Overview') {
+	    	url += "&target_species=" + speciesName;
+	    } 
+	    if (typeof(limit) !== 'undefined') {
+	    	url += "&limit=" + limit;
+		}
+	    
+		jQuery.ajax({
+			url: url, 
+			async : false,
+			dataType : 'json',
+			success : function(data) {
+				res = data;
+			},
+			error: function (xhr, errorType, exception) { 
+				var msg;
+				// Triggered if an error communicating with server
+				switch(xhr.status){
+				case 404:
+				case 500:
+				case 501:
+				case 502:
+				case 503:
+				case 504:
+				case 505:
+				default:
+					msg = "We're having some problems. Please try again soon.";
+					break;
+				case 0: 
+					msg = "Please check your network connection.";
+					break;
+				}
+				console.log(msg);
+			} 
+		});	
 
 
+		// if (typeof (res) !=='undefined' && res !== null) {
+		// 	if (typeof(limit) !== 'undefined' && typeof(res.b) !== 'undefined' && res.b !== null && res.b.length < limit) {
+		// 		res = this._padSpeciesData(res,speciesName,limit);
+		// 	}
+		// }
+		//this.owlsimsData[speciesName] = res;  //TODO:MAY NEED TO STILL DO THIS REVISIT LATER
+		// save the original owlsim data
+		this.owlsimsData = res;
 
+		// save the original source listing
+		this.origSourceList = qrySourceList;
+
+		if (typeof (res) !=='undefined' && res !== null) {
+			// now transform data to there basic data structures
+			this.transform(res);
+		}
+	},
+
+	transform: function(data) {	
+
+		if (typeof (data.b) !== 'undefined') {
+				for (var idx in data.b) {
+					var item = data.b[idx];
+					ID = this.parent._getConceptId(item.id);
+
+					// [vaa12] HACK.  NEEDED FOR ALLOWING MODELS OF THE SAME ID AKA VARIANTS TO BE DISPLAYED W/O OVERLAP
+					// SEEN MOST WITH COMPARE AND/OR EXOMISER DATA
+					if (this.targetHash.containsKey(ID)){
+						ID += "_" + variantNum;
+						variantNum++;
+					}
+
+					// TODO: THIS NEEDS CHANGED TO CATEGORY (I THINK MONARCH TEAM MENTIONED ADDING THIS)
+					type = this.parent.defaultApiEntity;
+					// for (var j in this.state.apiEntityMap) {
+					// 	if (ID.indexOf(this.state.apiEntityMap[j].prefix) === 0) {
+					// 		type = this.state.apiEntityMap[j].apifragment;
+					// 	}
+					// }
+					
+					// build the target list
+					var hashData = {"label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
+									"pos": parseInt(idx), "rank": parseInt(idx), "score": item.score.score};
+					this.targetHash.put(ID, hashData);
+
+					// matches is an array of all model matches
+					var matches = data.b[idx].matches;
+					var curr_row, lcs, cellPoint, hashDataVals;
+					var currID_a, currID_lcs;
+					if (typeof(matches) !== 'undefined' && matches.length > 0) {
+
+					for (var matchIdx in matches) {
+						curr_row = matches[matchIdx];
+						currID_a = this.parent._getConceptId(curr_row.a.id);
+						currID_b = this.parent._getConceptId(curr_row.b.id)
+						currID_lcs = this.parent._getConceptId(curr_row.lcs.id);
+
+						lcs = this.parent._normalizeIC(curr_row);
+
+						// build a list of sources
+						if (!this.sourceHash.containsKey(currID_a)) {
+							hashDataVals = {"label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), "pos": 0, 
+											"count": 0, "sum": 0, "type": "phenotype"};
+							this.sourceHash.put(currID_a, hashDataVals);
+							// if (!this.state.hpoCacheBuilt && this.state.preloadHPO){
+							// 	this._getHPO(this._getConceptId(curr_row.a.id));
+							// }
+						}
+
+						// building cellDataHash
+						cellPoint = new cellDataPoint(ID, currID_a);
+				//	this._updateSortVals(this._getConceptId(curr_row.a.id), parseFloat(curr_row.lcs.IC));
+						// Moved this from being it's own function into here;
+						// TODO: used for sorting somehow, will revisit this later
+						var values = this.sourceHash.get(currID_a);
+						values.count += 1;
+						values.sum += parseFloat(curr_row.lcs.IC);
+						this.sourceHash.put(currID_a,values);
+						
+						hashDataVals = {"value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": currID_lcs, 
+						"subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, 
+						"b_id": currID_b, "b_IC": parseFloat(curr_row.b.IC)};
+						this.cellDataHash.put(cellPoint, hashDataVals);
+					}
+					}  //if
+				}
+			}
+	}
+};
+
+// this represents the current viewport or window (currently displayed range) over the cellData,
+// which is viewable 'window' by the D3
+var ViewPort = function() {
+	this.indices = [];
+};
+ViewPort.prototype =  {
+	constructor: ViewPort,
+
+	getIndices: function () {
+		var indxPos = [];
+		
+		for (var i in this.indices ) {
+			var p = this.indices[i].pos;
+			indxPos.push(p);
+		}
+		return indxPos;
+	},
+	setIndices: function (indices) {
+		this.indices = indices;
+	},	
+	getStart: function() {
+		return this.indices[0].id;
+	},
+	getEnd: function() {
+		return this.indices[this.indices.length-1].id;
+	},
+	size: function() {
+		return this.indices.length;
+	}
+};
+//****************************************************
 
 /* main phenogrid widget */
 (function($) {
@@ -204,10 +424,12 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 	// reset state values that must be cleared before reloading data
 	_reset: function(type) {
+
+		// MKD: datamanager should be reset
 		// LEAVE UNTIL OR MOVING HASH CONSTRUCTION EARLIER
 		if (type == 'organism' || type == 'axisflip' || typeof(type) == 'undefined') {
-			this.state.modelData = [];
-			this.state.modelList = [];
+			this.state.modelData = [];   //MKD:refactor
+			this.state.modelList = [];   //MKD:refactor
 			this.state.expandedHash = new Hashtable();
 		}
 
@@ -226,7 +448,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	 * the basic formula is: (height - headerAreaHeight)/14.
 	 * return -1 if the available space is too small to properly display the grid
 	 */
-	_calcPhenotypeDisplayCount: function() {
+// MKD: may be able to eliminate later 	 
+	_calcYAxisDisplayLimit: function() {
 		var self = this;
 
 		var pCount = Math.round((self.state.h - self.state.headerAreaHeight) / 14);
@@ -326,11 +549,17 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			this.state.simServerURL=this.state.serverURL;
 		}
 		this.state.data = {};
+		// MKD: can init the DataManager here
+		this.state.dataManager = new DataManager(this, this.state.simServerURL);
+		this.state.dataViewPort = new ViewPort();
+
 		// will this work?
 		this.configoptions = undefined;
 		this._createTargetSpeciesIndices();
 		// index species
 		this._reset();
+
+		console.log("in create func...");
 	},
 
 	// create a shortcut index for quick access to target species by name - to get index (position) and taxon
@@ -365,20 +594,28 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		this.element.empty();
 		this._loadSpinner();
 
-		// original spot for init of tooltip
-		this.state.phenoDisplayCount = this._calcPhenotypeDisplayCount();
-		// save a copy of the original phenotype data
-		this.state.origPhenotypeData = this.state.phenotypeData.slice();
+//MKD: may be able to eliminate, restricts how many pheno are displayed
+		this.state.yAxisDisplayLimit = this._calcYAxisDisplayLimit();
+
+		// save a copy of the original phenotype data;  MKD: datamanager will save this now
+		//this.state.origPhenotypeData = this.state.phenotypeData.slice();
 
 		// target species name might be provided as a name or as taxon. Make sure that we translate to name
 		this.state.targetSpeciesName = this._getTargetSpeciesNameByTaxon(this,this.state.targetSpeciesName);
-		this.state.phenotypeData = this._filterPhenotypeResults(this.state.phenotypeData);
+//		this.state.phenotypeData = this._parseQuerySourceList(this.state.phenotypeData);
+		var querySourceList = this._parseQuerySourceList(this.state.phenotypeData);
 
-		this._loadData();
+		// dataManager fetch will initialize data
+		this.state.dataManager.fetch(querySourceList, this.state.targetSpeciesName);
+//		var pheHash = this.state.dataManager.getSourceEntries();  //TEST
+
+		this._loadData();   // MKD: datamanager.fetch will replace this
 
 		this._setLoadedValues();
 
 		this._processDisplay();
+
+		console.log("init...");
 	},
 
 	//Originally part of _init
@@ -407,12 +644,15 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		this.state.currXIdx = this.state.dataDisplayCount;
 		this.state.currYIdx = this.state.dataDisplayCount;
 		this.state.modelDisplayCount = this.state.dataDisplayCount;
-		this.state.phenoDisplayCount = this.state.dataDisplayCount;
+		this.state.yAxisDisplayLimit = this.state.dataDisplayCount;
 
 		// original position of hpo cache and load data
 
-		this.state.phenoLength = this.state.phenotypeListHash.size();
-		this.state.modelLength = this.state.modelListHash.size();
+// MKD: this should be refactored to use the dataManager
+		//this.state.phenoLength = this.state.phenotypeListHash.size();
+		//this.state.modelLength = this.state.modelListHash.size();		
+		this.state.phenoLength = this.state.dataManager.getSources().size();
+		this.state.modelLength = this.state.dataManager.getTargets().size();
 
 		// shorthand for top of model region
 		this.state.yModelRegion = this.state.yoffsetOver + this.state.yoffset;
@@ -420,8 +660,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		// copy the phenotypeArray to phenotypeData array - now instead of ALL phenotypes, it will be limited to unique phenotypes for this disease
 		// do not alter this array: this.state.phenotypeData
 
+// MKD: these can be possible eliminated
 		this._adjustPhenotypeCount();
-	        this._adjustModelCount();
+	    this._adjustModelCount();
 
 	        this._createAxisRenderingGroups();
 		//this._setAxisValues();
@@ -432,25 +673,28 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	},
 
 
-	    /* create the groups to contain the rendering 
-	       information for x and y axes. Use already loaded data
-	       in various hashes, etc. to create objects containing
-	       information for axis rendering. Then, switch source and target
-	       groups to be x or y depending on "flip axis" choice*/
-        _createAxisRenderingGroups: function() {
-	    
-	        /*** Build axis group here. */
-	        /* remember, source = phenotype and target=model */
-       	         var self = this;
+    /* create the groups to contain the rendering 
+       information for x and y axes. Use already loaded data
+       in various hashes, etc. to create objects containing
+       information for axis rendering. Then, switch source and target
+       groups to be x or y depending on "flip axis" choice*/
+    _createAxisRenderingGroups: function() {
+    
+        /*** Build axis group here. */
+        /* remember, source = phenotype and target=model */
+   	    var self = this;
 
-	    /* only do this if the group doesn't exist - don't
-	       recreate on reload */
-	    this.state.sourceAxis = new AxisGroup(self.state.phenoDisplayCount,
-						  self.state.phenotypeListHash);
-	    
-	    this.state.targetAxis =  new AxisGroup(self.state.modelDisplayCount,
-						   self.state.modelListHash);
-	    self._setAxisRenderers();
+    	/* only do this if the group doesn't exist - don't
+       	recreate on reload */
+       	//MKD: GET DATA FROM DM
+    	this.state.sourceAxis = new AxisGroup(self.state.yAxisDisplayLimit,
+					  this.state.dataManager.getSources());
+//					  self.state.phenotypeListHash);
+    
+    	this.state.targetAxis =  new AxisGroup(self.state.modelDisplayCount,
+					   this.state.dataManager.getTargets());
+//					   self.state.modelListHash);
+    	self._setAxisRenderers();
 	},
 
        _setAxisRenderers: function() {
@@ -572,7 +816,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 					$("#errmsg").remove();
 					d3.select("#svg_area").remove();
 
-					self.state.phenotypeData = self.state.origPhenotypeData.slice();
+					//MKD: GET RID OF THIS LINE
+					//self.state.phenotypeData = self.state.origPhenotypeData.slice();
 					self._reset();
 					self.state.targetSpeciesName = "Overview";
 					self._init();
@@ -988,20 +1233,22 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	_processDisplay: function(){
 		this._sortPhenotypeHash();
 		this._filterDisplay();
-		this.state.unmatchedPhenotypes = this._getUnmatchedPhenotypes();
+		this.state.unmatchedSources = this._getUnmatchedSources();
 		this.element.empty();
 		this._reDraw();
 	},
 
 	// given the full dataset, return a filtered dataset containing the
 	// subset of data bounded by the phenotype display count and the model display count
+// MKD: this should work off AxisGroup or based on Viewport/x/y; can we eliminate?	
 	_adjustPhenotypeCount: function() {
 		// we need to adjust the display counts and indexing if there are fewer phenotypes than the default
-		if (this.state.phenoLength < this.state.phenoDisplayCount) {
-			this.state.phenoDisplayCount = this.state.phenoLength;
+		if (this.state.phenoLength < this.state.yAxisDisplayLimit) {
+			this.state.yAxisDisplayLimit = this.state.phenoLength;
 		}
 	},
 
+// MKD: this should work off AxisGroup or based on Viewport/x/y; can we eliminate?
 	_adjustModelCount: function() {
 		// we need to adjust the display counts and indexing if there are fewer models
 		if (this.state.modelLength < this.state.modelDisplayCount) {
@@ -1067,9 +1314,12 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			this.state.hpoCacheLabels = new Hashtable();
 		}
 
+		//MKD: dataManager
+		//this.state.dataManager.init();
+
 		this.state.expandedHash = new Hashtable();  // for cache of genotypes
-		this.state.phenotypeListHash = new Hashtable();
-		this.state.modelListHash = new Hashtable();
+//		this.state.phenotypeListHash = new Hashtable();      //MKD: source
+//		this.state.modelListHash = new Hashtable();			 //MKD: target
 	    
 	        // cellDataHash is the main table that contains the information on each relationship/cell in the grid.
 		this.state.cellDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
@@ -1078,6 +1328,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		// At time being, overview is made up of three calls, which it repeats these calls with a larger limit if you decided to view single species
 		// Might be more efficent to load those three, cache them and then make an overview dataset and cache that as well.
 		// This is also called when axis is flipped, so might need to create those cached as well (which would be very simple)
+		// NOTE: MKD:  it doesn't appear the sim call can return all species at once; default seems to be homosap
 		if (this.state.targetSpeciesName === "Overview") {
 			this._loadOverviewData();
 			this._finishOverviewLoad();
@@ -1092,8 +1343,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		this.state.hpoCacheBuilt = true;
 	},
 
+// MKD: will be refactored to DM
 	_loadSpeciesData: function(speciesName,limit) {
-		var phenotypeList = this.state.phenotypeData;
+		var phenotypeList = this.state.phenotypeData;   // in DM NOW
 		var taxon = this._getTargetSpeciesTaxonByName(this,speciesName);
 		var res;
 		//console.log("this.state.simServerURL is..."+this.state.simServerURL);
@@ -1170,6 +1422,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		}
 	},
 
+// MKD: refactor to DM
 	_finishOverviewLoad: function () {
 		var speciesList = [];
 		var posID = 0;
@@ -1260,6 +1513,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	 * For a given model, extract the sim search data including IC scores and the triple:
 	 * The a column, b column, and lowest common subsumer for the triple's IC score, use the LCS score
 	 */
+// MKD: REFACTORED TO DATAMANAGER	 
 	_loadDataForModel: function(modelID, newModelData) {
 		// data is an array of all model matches
 		var data = newModelData.matches;
@@ -1269,7 +1523,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			for (var idx in data) {
 				curr_row = data[idx];
 				lcs = this._normalizeIC(curr_row);
-
+/* MKD: this is initialized in DM;  need to add the HPO stuff in DM
 				if (!this.state.phenotypeListHash.containsKey(this._getConceptId(curr_row.a.id))){
 					hashData = {"label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), "pos": 0, "count": 0, "sum": 0, "type": "phenotype"};
 					this.state.phenotypeListHash.put(this._getConceptId(curr_row.a.id), hashData);
@@ -1277,14 +1531,14 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 						this._getHPO(this._getConceptId(curr_row.a.id));
 					}
 				}
-
+*/
 				// Setting cellDataHash
 				if (this.state.invertAxis){
 					cellPoint = new cellDataPoint(this._getConceptId(curr_row.a.id), this._getConceptId(modelID));
 				} else {
 					cellPoint = new cellDataPoint(this._getConceptId(modelID), this._getConceptId(curr_row.a.id));
 				}
-				this._updateSortVals(this._getConceptId(curr_row.a.id), parseFloat(curr_row.lcs.IC));
+//				this._updateSortVals(this._getConceptId(curr_row.a.id), parseFloat(curr_row.lcs.IC));
 				hashData = {"value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": this._getConceptId(curr_row.lcs.id), "subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, "b_id": this._getConceptId(curr_row.b.id), "b_IC": parseFloat(curr_row.b.IC)};
 				this.state.cellDataHash.put(cellPoint, hashData);
 			}
@@ -1321,10 +1575,13 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	},
 
 	// Will update the position of the phenotype based on sort
+	//MKD: is this needed???
 	_updatePhenoPos: function(key,rank) {
-		var values = this.state.phenotypeListHash.get(key);
+		//var values = this.state.phenotypeListHash.get(key);
+		var values = this.state.dataManager.getSourceElement(key);
 		values.pos = rank;
-		this.state.phenotypeListHash.put(key,values);
+		//this.state.phenotypeListHash.put(key,values);
+		this.state.dataManager.putSourceEntity(key,values);
 	},
 
 	// Sets the correct position for the value on the yAxis on where it belongs in the grid/axis
@@ -1334,6 +1591,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	    this.state.yAxisRender.itemsPut(key,values);
 	},
 
+	//MKD:MAY NOT NEED THIS
 	// Updates the count & sum values used for sorting
 	_updateSortVals: function(key,subIC) {
 		var values;
@@ -1364,18 +1622,21 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	},
 
 	// Determines if an ID belongs to the Model or Phenotype hashtable
+	// MKD: MOVE TIS TO DATAMANAGER;  use type attribute instead of this hard-code
 	_getIDType: function(key) {
-		if (this.state.modelListHash.containsKey(key)){
+		if (this.state.dataManager.sourcesContains(key)){
 			return "Model";
 		}
-		else if (this.state.phenotypeListHash.containsKey(key)){
+		//else if (this.state.phenotypeListHash.containsKey(key)){
+		else if (this.state.dataManager.sourcesContains(key)) {
 			return "Phenotype";
 		}
 		else { return false; }
 	},
 
 	_getIDTypeDetail: function(key) {
-		var info = this.state.modelListHash.get(key);
+		//var info = this.state.modelListHash.get(key);
+		var info = this.state.dataManager.getTargetElement(key);
 		
 		if (info !== null) return info.type;
 		return "unknown";
@@ -1384,7 +1645,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	// Creates the filteredCellData data structure
 	_filterHashTables: function () {
 		var newFilteredCell = [];
-		var currentCellData = this.state.cellDataHash.entries();
+		//var currentCellData = this.state.cellDataHash.entries();
+//MKD: refactor to DM		
+		var currentCellData = this.state.dataManager.getCellEntries();
 
 		for (var i in currentCellData){
 			if (this.state.filteredXAxis.containsKey(currentCellData[i][0].xID) && this.state.filteredYAxis.containsKey(currentCellData[i][0].yID)){
@@ -1393,10 +1656,12 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 				newFilteredCell.push(currentCellData[i][1]);
 			}
 		}
+//MKD: trying using Viewport here		
 		this.state.filteredCellData = newFilteredCell;
 	},
 
 	// Filters down the axis hashtables based on what the limits are
+// MKD: refactor to Viewport???	
 	_filterListHash: function (hash,start,end) {
 		var filteredHash = new Hashtable();
 		var oldHash = hash.entries();
@@ -1411,12 +1676,14 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	},
 
 	// Sorts the phenotypes
+	// mkd: SORTING WILL BE DONE BY DATAMANAGER
 	_sortPhenotypeHash: function () {
 		var self = this;
 		var sortType = self.state.selectedSort;
 		var sortFunc;
 		var newHash = [];
-		var origHash = self.state.phenotypeListHash.entries();
+		//var origHash = self.state.phenotypeListHash.entries();
+		var origHash = self.state.dataManager.getSourceEntries();
 		for (var i in origHash){
 			newHash.push({"id": origHash[i][0], "label": origHash[i][1].label.toLowerCase(), "count": origHash[i][1].count, "sum": origHash[i][1].sum});
 		}
@@ -1695,7 +1962,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		$("#svg_area").remove();
 
 		if (type === "organism"){
-			self.state.phenotypeData = self.state.origPhenotypeData.slice();
+			//MKD: GET RID OF THIS LINE
+			//self.state.phenotypeData = self.state.origPhenotypeData.slice();
 			self._reset("organism");
 			self._init();
 		} else if (type === "calculation"){
@@ -1703,7 +1971,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		} else if (type === "sortphenotypes"){
 			self._reset("sortphenotypes");
 		} else if (type === "axisflip"){
-			self.state.phenotypeData = self.state.origPhenotypeData.slice();
+			// MKD GET RID OF THIS LINE
+			//self.state.phenotypeData = self.state.origPhenotypeData.slice();
 			self._reset("axisflip");
 			self._init();
 		}
@@ -2217,20 +2486,37 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		var taxon = fullInfo.taxon;
 
 		//[vaa12] Could be done in a more sophisticated function, but this works and removed dependancy on invertAxis
-		if (this.state.phenotypeListHash.containsKey(d.xID)){
-			phenoLabel = this.state.phenotypeListHash.get(d.xID).label;
-		} else if (this.state.phenotypeListHash.containsKey(d.yID)){
-			phenoLabel = this.state.phenotypeListHash.get(d.yID).label;
+		//MKD: DATA ACCESS SHOULD GO THROUGH DM
+		// if (this.state.phenotypeListHash.containsKey(d.xID)){
+		// 	phenoLabel = this.state.phenotypeListHash.get(d.xID).label;
+		// } else if (this.state.phenotypeListHash.containsKey(d.yID)){
+		// 	phenoLabel = this.state.phenotypeListHash.get(d.yID).label;
+		// } else {
+		// 	phenoLabel = null;
+		// }
+		if (this.state.dataManager.sourcesContains(d.xID)){
+			phenoLabel = this.state.dataManager.getSourceElement(d.xID).label;
+		} else if (this.state.dataManager.sourcesContains(d.yID)){
+			phenoLabel = this.state.dataManager.getSourceElement(d.yID).label;
 		} else {
 			phenoLabel = null;
 		}
-		if (this.state.modelListHash.containsKey(d.xID)){
-			modelLabel = this.state.modelListHash.get(d.xID).label;
-		} else if (this.state.modelListHash.containsKey(d.yID)){
-			modelLabel = this.state.modelListHash.get(d.yID).label;
+
+		// if (this.state.modelListHash.containsKey(d.xID)){
+		// 	modelLabel = this.state.modelListHash.get(d.xID).label;
+		// } else if (this.state.modelListHash.containsKey(d.yID)){
+		// 	modelLabel = this.state.modelListHash.get(d.yID).label;
+		// } else {
+		// 	modelLabel = null;
+		// }
+		if (this.state.dataManager.targetsContains(d.xID)){
+			modelLabel = this.state.dataManager.getTargetElement(d.xID).label;
+		} else if (this.state.dataManager.targetsContains(d.yID)){
+			modelLabel = this.state.dataManager.getTargetElement(d.yID).label;
 		} else {
 			modelLabel = null;
 		}
+
 
 		if (taxon !== undefined || taxon !== null || taxon !== '' || isNaN(taxon)) {
 			if (taxon.indexOf("NCBITaxon:") != -1) {
@@ -2348,7 +2634,6 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.attr("ry", "3")
 			// I need to pass this into the function
    		        .on("mouseover", function(d) {
-			    console.log("moused over..."+JSON.stringify(this));
 				this.parentNode.appendChild(this);
 				// if this column and row are selected, clear the column/row and unset the column/row flag
 				if (self.state.selectedColumn !== undefined && self.state.selectedRow !== undefined) {
@@ -2869,7 +3154,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		// only show the scale if there is more than one value represented in the scale
 		if (diff > 0) {
 			// baseline for gradient positioning
-			if (this.state.phenoLength < this.state.phenoDisplayCount) {
+			if (this.state.phenoLength < this.state.yAxisDisplayLimit) {
 				y1 = 172;
 			} else {
 				y1 = 262;
@@ -3168,7 +3453,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 				return self._decodeHtmlEntity(txt);
 			});
 
-		this._buildUnmatchedPhenotypeDisplay();
+		this._buildUnmatchedSourceDisplay();
 
 		rect_text.transition()
 			.style('opacity', '1.0')
@@ -3183,9 +3468,11 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			.remove();
 	},
 
-	_getUnmatchedPhenotypes: function(){
-		var fullset = this.state.origPhenotypeData;
-		var partialset = this.state.phenotypeListHash.keys();
+	_getUnmatchedSources: function(){
+		//var fullset = this.state.origPhenotypeData;
+		var fullset = this.state.dataManager.getOriginalSource();
+		//var partialset = this.state.phenotypeListHash.keys();   //MKD: GET FROM DM
+		var partialset = this.state.dataManager.getSourceKeys();
 		var full = [];
 		var partial = [];
 		var unmatchedset = [];
@@ -3232,7 +3519,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		return dupArray;
 	},
 
-	_buildUnmatchedPhenotypeDisplay: function() {
+	_buildUnmatchedSourceDisplay: function() {
 		var optionhtml;
 		var prebl = $("#prebl");
 		if (prebl.length === 0) {
@@ -3242,7 +3529,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		}
 		prebl.empty();
 
-		if (this.state.unmatchedPhenotypes !== undefined && this.state.unmatchedPhenotypes.length > 0){
+		if (this.state.unmatchedSources !== undefined && this.state.unmatchedSources.length > 0){
 			optionhtml = "<div class='clearfix'><form id='matches'><input type='checkbox' name='unmatched' value='unmatched' >&nbsp;&nbsp;View Unmatched Phenotypes<br /><form><div id='clear'></div>";
 			var phenohtml = this._buildUnmatchedPhenotypeTable();
 			optionhtml = optionhtml + "<div id='unmatched' style='display:none;'>" + phenohtml + "</div></div>";
@@ -3273,7 +3560,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		var outer2 = "</table>";
 		var inner = "";
 
-		var unmatched = self.state.unmatchedPhenotypes;
+		var unmatched = self.state.unmatchedSources;
 		var text = "";
 		var i = 0;
 		var label, id, url_origin;
@@ -3335,8 +3622,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	 * items are either ontology ids as strings, in which case they are handled as is,
 	 * or they are objects of the form { "id": <id>, "observed": <obs>}.
 	 * in that case take id if "observed" is "positive"
+	 * refactor: _filterPhenotypeResults
 	 */
-	_filterPhenotypeResults: function(phenotypelist) {
+	_parseQuerySourceList: function(phenotypelist) {
 		var newlist = [];
 		var pheno;
 		for (var i in phenotypelist) {
@@ -3437,16 +3725,19 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 
 	// collapse the expanded items for the current selected model targets
 	_collapse: function(curModel) {
-		var modelInfo = {id: curModel, d: this.state.modelListHash.get(curModel)};
+		var curData = this.state.dataManager.getTargetElement(curModel);
+		var modelInfo = {id: curModel, d: curData};
 
 		// check cached hashtable first 
 		var cachedScores = this.state.expandedHash.get(modelInfo.id);
 
 		// if found just return genotypes scores
 		if (cachedScores !== null && cachedScores.expanded) {
+// MKD:  this needs to use DM
 			this.state.modelListHash = this._removalFromModelList(cachedScores);
 
-			this._rebuildCellHash();
+// MKD: do this through DM
+//			this._rebuildCellHash();
 			this.state.modelLength = this.state.modelListHash.size();
 
 //			this._setAxisValues();
@@ -3461,6 +3752,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	},
 
 	// get all matching phenotypes for a model
+// MKD: get this from DM
 	_getMatchingPhenotypes: function(curModelId) {
 		var self = this;
 		var models = self.state.modelData;
@@ -3477,12 +3769,12 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	// insert into the model list
 	_insertionModelList: function (insertPoint, insertions) {
 		var newModelList = new Hashtable();
-		var sortedModelList= self._getSortedIDList(this.state.modelListHash.entries());
+		var sortedModelList= self._getSortedIDList( this.state.dataManager.getTargetEntries()); 
 		var reorderPointOffset = insertions.size();
 		var insertionOccurred = false;
 
 		for (var i in sortedModelList){
-			var entry = this.state.modelListHash.get(sortedModelList[i]);
+			var entry = this.state.dataManager.getTargetElement(sortedModelList[i]);
 			if (entry.pos == insertPoint) {
 				// add the entry, or gene in this case	
 				newModelList.put(sortedModelList[i], entry);
@@ -3508,8 +3800,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 	_removalFromModelList: function (removalList) {
 		var newModelList = new Hashtable();
 		var newModelData = [];
-		var removalKeys = removalList.genoTypes.keys();
-		var sortedModelList= self._getSortedIDList(this.state.modelListHash.entries());
+		var removalKeys = removalList.genoTypes.keys();   // MKD: needs refactored
+		var sortedModelList= self._getSortedIDList(this.state.dataManager.getTargetEntries());
 		var removeEntries = removalList.genoTypes.entries();
 
 		// get the max position that was inserted
@@ -3522,7 +3814,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		}
 
 		for (var i in sortedModelList){
-			var entry = this.state.modelListHash.get(sortedModelList[i]);
+			var entry = this.state.dataManager.getTargetElement(sortedModelList[i]);
 			var found = false, cnt = 0;
 
 			// check list to make sure it needs removed
@@ -3544,6 +3836,7 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		}
 
 		// loop through to rebuild model data and remove any removals
+//MKD: needs refactored		
 		for (var y = 0; y < this.state.modelData.length; y++) {
 			var id = this.state.modelData[y].model_id;
 			var ret = removalKeys.indexOf(id);
@@ -3551,12 +3844,13 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 				newModelData.push(this.state.modelData[y]);
 			}
 		}
-
+// MKD: REFACTOR TO USE DM
 		this.state.modelData = newModelData;
 		return newModelList;
 	},
 
-	_rebuildCellHash: function() {
+//MKD: MOVE TO DATAMANAGER 
+/*	_rebuildCellHash: function() {
 		// [vaa12] needs updating based on changes in finishLoad and finishOverviewLoad
 		this.state.phenotypeListHash = new Hashtable();
 		this.state.cellDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
@@ -3578,12 +3872,12 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			} else {
 				modelPoint = new cellDataPoint(this.state.modelData[i].model_id, this.state.modelData[i].id_a);
 			}
-			this._updateSortVals(this.state.modelData[i].id_a, this.state.modelData[i].subsumer_IC);
+//			this._updateSortVals(this.state.modelData[i].id_a, this.state.modelData[i].subsumer_IC);
 			hashData = {"value": this.state.modelData[i].value, "subsumer_label": this.state.modelData[i].subsumer_label, "subsumer_id": this.state.modelData[i].subsumer_id, "subsumer_IC": this.state.modelData[i].subsumer_IC, "b_label": this.state.modelData[i].label_b, "b_id": this.state.modelData[i].id_b, "b_IC": this.state.modelData[i].IC_b};
 			this.state.cellDataHash.put(modelPoint, hashData);
 		}
 	},
-
+*/
 	// encode any special chars 
 	_encodeHtmlEntity: function(str) {
 		if (str !== null) {
@@ -3675,7 +3969,8 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 		var refresh = true;
 		var targets = new Hashtable();
 		var type = this._getIDTypeDetail(curModel);
-		var modelData = {id: curModel, type: type, d: this.state.modelListHash.get(curModel)};
+		var curData = this.state.dataManager.getTargetElement(curModel);
+		var modelData = {id: curModel, type: type, d: curData};
 
 		// check cached hashtable first 
 		var cachedTargets = this.state.expandedHash.get(modelData.id);
@@ -3709,8 +4004,10 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 			}
 
 			console.log("Starting Insertion...");
+// MKD: do this using DM
 			this.state.modelListHash = this._insertIntoModelList(modelData.d.pos, returnObj.targets);
 
+// MKD: do this using DM
 			console.log("Rebuilding hashtables...");
 			this._rebuildModelHash();
 
