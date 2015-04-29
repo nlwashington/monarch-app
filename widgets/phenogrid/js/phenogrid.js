@@ -76,32 +76,30 @@ var AxisGroup = function(displayCount,itemsHash)  {
     this.itemsHash = itemsHash;
 };
 
-AxisGroup.prototype.getItemCount = function() {
-    return this.displayCount;
-};
-
-AxisGroup.prototype.getItemHash = function() {
-    return this.itemsHash;
-};
-
-AxisGroup.prototype.getItemEntries = function() {
-    return this.itemsHash.entries();
-};
-
-AxisGroup.prototype.getAxisSize = function() {
-    return this.itemsHash.size();
-};
-
-AxisGroup.prototype.itemsGet = function(key) {
-    return this.itemsHash.get(key);
-}
-
-AxisGroup.prototype.itemsContains = function(key) {
-    return this.itemsHash.containsKey(key);
-};
-
-AxisGroup.prototype.itemsPut = function(key,val) {
-    this.itemsHash.put(key,val);
+AxisGroup.prototype = {
+	constructor: AxisGroup,
+	
+	getItemCount: function() {
+    	return this.displayCount;
+	},
+	getItemHash: function() {
+    	return this.itemsHash;
+	},
+	getItemEntries: function() {
+    	return this.itemsHash.entries();
+	},
+	getAxisSize: function() {
+    	return this.itemsHash.size();
+	},
+	itemsGet: function(key) {
+    	return this.itemsHash.get(key);
+	},
+	itemsContains: function(key) {
+    	return this.itemsHash.containsKey(key);
+	},
+	itemsPut: function(key,val) {
+    	this.itemsHash.put(key,val);
+    }
 };
 
 //***************************************
@@ -109,9 +107,9 @@ AxisGroup.prototype.itemsPut = function(key,val) {
 var DataManager = function(parent, serverUrl) {
 	this.parent = parent;
 	this.expandedCache = [];   
-	this.sourceHash = new Hashtable();
-	this.targetHash = new Hashtable();
-	this.cellDataHash = new Hashtable();
+	this.source = new Hashtable();
+	this.target = new Hashtable();
+	this.cell = new Hashtable();
 	this.owlsimsData;			// raw owlsim
 	this.simServerURL = serverUrl;
 	this.origSourceList;
@@ -120,51 +118,45 @@ var DataManager = function(parent, serverUrl) {
 DataManager.prototype = {
 	constructor: DataManager,
 	init: function() {
-		this.sourceHash = new Hashtable();   // phenoList
-		this.targetHash = new Hashtable();	 // modelList
+		this.source = new Hashtable();   // phenoList
+		this.target = new Hashtable();	 // modelList
 	},
-	getSourceElement: function (key) {
-		return this.sourceHash.get(key);
-	},	
-	putSourceEntity: function (key,values) {
-		return this.sourceHash.put(key,values);
+/*
+	// gets a single element
+	getElement: function (dataset, key) {
+		return eval('this.' + dataset + '.get(' + key + ')');
+		//return this.sourceHash.get(key);
 	},
-	getSourceEntries: function () {
-		return this.sourceHash.entries();
+	// put value onto source	
+	setValue: function (dataset, key,values) {
+		return eval('this.' + dataset + '.put(' + key + ',' + values + ' )');
+//		return this.sourceHash.put(key,values);
 	},
-	getSources: function () {
-		return this.sourceHash;
-	},	
-	getSourceKeys: function () {
-		return this.sourceHash.keys();
+	// gets all entries from source hash
+	getEntries: function (dataset) {
+		return eval('this.' + dataset + '.entries()');
+//		return this.sourceHash.entries();
 	},
-	sourcesContains: function (key) {
-		return this.sourceHash.containsKey(key);
+	// get list of keys
+	getKeys: function (dataset) {
+		return eval('this.' + dataset + '.keys()');
 	},
-	getTargets: function () {
-		return this.targetHash;
+	// evalutes if key is contained with dataset 
+	contains: function (dataset, key) {
+		return eval('this.' + dataset + '.containsKey(' + key +' )');	
+//		return this.sourceHash.containsKey(key);
 	},
-	getTargetElement: function (key) {
-		return this.targetHash.get(key);
-	},	
-	getTargetEntries: function () {
-		return this.targetHash.entries();
+	// get size of hash
+	getSize: function(dataset) {
+		return eval('this.' + dataset + '.size()');
+//		return this.sourceHash.size();
 	},
-	getTargetKeys: function () {
-		return this.targetHash.keys();
-	},
-	targetsContains: function (key) {
-		return this.targetHash.containsKey(key);
-	},	
-	getCellEntries: function () {
-		return this.cellDataHash.entries();
-	},
-	getCellKeys: function () {
-		return this.cellDataHash.keys();
-	},
+*/	
+	// gets the original source listing used for query
 	getOriginalSource: function() {
 		return this.qrySourceList;
 	},
+	// fetch and load data from ajax 
 	fetch: function(qrySourceList, speciesName) {
 		var res;
     	var url = this.simServerURL + this.parent.state.simSearchQuery + qrySourceList.join("+");
@@ -223,17 +215,19 @@ DataManager.prototype = {
 			this.transform(res);
 		}
 	},
-
+	// transforms data from raw owlsims 
 	transform: function(data) {	
 
 		if (typeof (data.b) !== 'undefined') {
+			console.log("transforming...");
+				var variantNum = 0;
 				for (var idx in data.b) {
 					var item = data.b[idx];
 					ID = this.parent._getConceptId(item.id);
 
 					// [vaa12] HACK.  NEEDED FOR ALLOWING MODELS OF THE SAME ID AKA VARIANTS TO BE DISPLAYED W/O OVERLAP
 					// SEEN MOST WITH COMPARE AND/OR EXOMISER DATA
-					if (this.targetHash.containsKey(ID)){
+					if (this.target.containsKey(ID)){
 						ID += "_" + variantNum;
 						variantNum++;
 					}
@@ -249,7 +243,7 @@ DataManager.prototype = {
 					// build the target list
 					var hashData = {"label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
 									"pos": parseInt(idx), "rank": parseInt(idx), "score": item.score.score};
-					this.targetHash.put(ID, hashData);
+					this.target.put(ID, hashData);
 
 					// matches is an array of all model matches
 					var matches = data.b[idx].matches;
@@ -266,10 +260,10 @@ DataManager.prototype = {
 						lcs = this.parent._normalizeIC(curr_row);
 
 						// build a list of sources
-						if (!this.sourceHash.containsKey(currID_a)) {
+						if (!this.source.containsKey(currID_a)) {
 							hashDataVals = {"label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), "pos": 0, 
 											"count": 0, "sum": 0, "type": "phenotype"};
-							this.sourceHash.put(currID_a, hashDataVals);
+							this.source.put(currID_a, hashDataVals);
 							// if (!this.state.hpoCacheBuilt && this.state.preloadHPO){
 							// 	this._getHPO(this._getConceptId(curr_row.a.id));
 							// }
@@ -280,15 +274,15 @@ DataManager.prototype = {
 				//	this._updateSortVals(this._getConceptId(curr_row.a.id), parseFloat(curr_row.lcs.IC));
 						// Moved this from being it's own function into here;
 						// TODO: used for sorting somehow, will revisit this later
-						var values = this.sourceHash.get(currID_a);
+						var values = this.source.get(currID_a);
 						values.count += 1;
 						values.sum += parseFloat(curr_row.lcs.IC);
-						this.sourceHash.put(currID_a,values);
+						this.source.put(currID_a,values);
 						
 						hashDataVals = {"value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": currID_lcs, 
 						"subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, 
 						"b_id": currID_b, "b_IC": parseFloat(curr_row.b.IC)};
-						this.cellDataHash.put(cellPoint, hashDataVals);
+						this.cell.put(cellPoint, hashDataVals);
 					}
 					}  //if
 				}
@@ -607,7 +601,6 @@ ViewPort.prototype =  {
 
 		// dataManager fetch will initialize data
 		this.state.dataManager.fetch(querySourceList, this.state.targetSpeciesName);
-//		var pheHash = this.state.dataManager.getSourceEntries();  //TEST
 
 		this._loadData();   // MKD: datamanager.fetch will replace this
 
@@ -651,8 +644,8 @@ ViewPort.prototype =  {
 // MKD: this should be refactored to use the dataManager
 		//this.state.phenoLength = this.state.phenotypeListHash.size();
 		//this.state.modelLength = this.state.modelListHash.size();		
-		this.state.phenoLength = this.state.dataManager.getSources().size();
-		this.state.modelLength = this.state.dataManager.getTargets().size();
+//		this.state.phenoLength = this.state.dataManager.getSourceSize();
+//		this.state.modelLength = this.state.dataManager.getTargetSize();
 
 		// shorthand for top of model region
 		this.state.yModelRegion = this.state.yoffsetOver + this.state.yoffset;
@@ -688,11 +681,11 @@ ViewPort.prototype =  {
        	recreate on reload */
        	//MKD: GET DATA FROM DM
     	this.state.sourceAxis = new AxisGroup(self.state.yAxisDisplayLimit,
-					  this.state.dataManager.getSources());
+					  this.state.dataManager.source);
 //					  self.state.phenotypeListHash);
     
     	this.state.targetAxis =  new AxisGroup(self.state.modelDisplayCount,
-					   this.state.dataManager.getTargets());
+					   this.state.dataManager.target);
 //					   self.state.modelListHash);
     	self._setAxisRenderers();
 	},
@@ -716,7 +709,8 @@ ViewPort.prototype =  {
 	},
 
 	_reDraw: function() {
-	    if (this.state.phenoLength !== 0 && this.state.filteredCellData.length !== 0){
+	    //if (this.state.phenoLength !== 0 && this.state.filteredCellData.length !== 0){
+	    if (this.state.dataManager.source.size() !== 0 && this.state.filteredCellData.length !== 0){
 		//var displayCount = this._getYLimit();
 		var displayCount = this.state.yAxisRender.getItemCount();
 
@@ -910,7 +904,8 @@ ViewPort.prototype =  {
 		self._createSmallScales(overviewRegionSize);
 
 		// add the items using smaller rects
-		var cellData = self._mergeHashEntries(self.state.cellDataHash);
+		//var cellData = self._mergeHashEntries(self.state.cellDataHash);
+		var cellData = self._mergeHashEntries(self.state.dataManager.cell);
 
 		var cell_rects = this.state.svg.selectAll(".mini_cells")
 			.data(cellData, function(d) {return d.yID + d.xID;});
@@ -1243,8 +1238,10 @@ ViewPort.prototype =  {
 // MKD: this should work off AxisGroup or based on Viewport/x/y; can we eliminate?	
 	_adjustPhenotypeCount: function() {
 		// we need to adjust the display counts and indexing if there are fewer phenotypes than the default
-		if (this.state.phenoLength < this.state.yAxisDisplayLimit) {
-			this.state.yAxisDisplayLimit = this.state.phenoLength;
+		//if (this.state.phenoLength < this.state.yAxisDisplayLimit) {
+		if (this.state.dataManager.source.size() < this.state.yAxisDisplayLimit) {
+			// this.state.yAxisDisplayLimit = this.state.phenoLength;
+			this.state.yAxisDisplayLimit = this.state.dataManager.source.size();
 		}
 	},
 
@@ -1322,7 +1319,7 @@ ViewPort.prototype =  {
 //		this.state.modelListHash = new Hashtable();			 //MKD: target
 	    
 	        // cellDataHash is the main table that contains the information on each relationship/cell in the grid.
-		this.state.cellDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
+//		this.state.cellDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
 	    
 		// [vaa12] determine if is wise to preload datasets for the three species and then build overview from this
 		// At time being, overview is made up of three calls, which it repeats these calls with a larger limit if you decided to view single species
@@ -1578,10 +1575,10 @@ ViewPort.prototype =  {
 	//MKD: is this needed???
 	_updatePhenoPos: function(key,rank) {
 		//var values = this.state.phenotypeListHash.get(key);
-		var values = this.state.dataManager.getSourceElement(key);
+		var values = this.state.dataManager.source.get(key);
 		values.pos = rank;
 		//this.state.phenotypeListHash.put(key,values);
-		this.state.dataManager.putSourceEntity(key,values);
+		this.state.dataManager.source.put(key,values);
 	},
 
 	// Sets the correct position for the value on the yAxis on where it belongs in the grid/axis
@@ -1602,6 +1599,7 @@ ViewPort.prototype =  {
 	},
 
 	// Returns values from a point on the grid
+//MKD: from DM?	
 	_getCellData: function(point) {
 		if (this.state.cellDataHash.containsKey(point)){
 			return this.state.cellDataHash.get(point);
@@ -1624,11 +1622,11 @@ ViewPort.prototype =  {
 	// Determines if an ID belongs to the Model or Phenotype hashtable
 	// MKD: MOVE TIS TO DATAMANAGER;  use type attribute instead of this hard-code
 	_getIDType: function(key) {
-		if (this.state.dataManager.sourcesContains(key)){
+		if (this.state.dataManager.target.containsKey(key)){
 			return "Model";
 		}
 		//else if (this.state.phenotypeListHash.containsKey(key)){
-		else if (this.state.dataManager.sourcesContains(key)) {
+		else if (this.state.dataManager.source.containsKey(key)) {
 			return "Phenotype";
 		}
 		else { return false; }
@@ -1636,7 +1634,7 @@ ViewPort.prototype =  {
 
 	_getIDTypeDetail: function(key) {
 		//var info = this.state.modelListHash.get(key);
-		var info = this.state.dataManager.getTargetElement(key);
+		var info = this.state.dataManager.target.get(key);
 		
 		if (info !== null) return info.type;
 		return "unknown";
@@ -1647,7 +1645,7 @@ ViewPort.prototype =  {
 		var newFilteredCell = [];
 		//var currentCellData = this.state.cellDataHash.entries();
 //MKD: refactor to DM		
-		var currentCellData = this.state.dataManager.getCellEntries();
+		var currentCellData = this.state.dataManager.cell.entries();
 
 		for (var i in currentCellData){
 			if (this.state.filteredXAxis.containsKey(currentCellData[i][0].xID) && this.state.filteredYAxis.containsKey(currentCellData[i][0].yID)){
@@ -1683,7 +1681,7 @@ ViewPort.prototype =  {
 		var sortFunc;
 		var newHash = [];
 		//var origHash = self.state.phenotypeListHash.entries();
-		var origHash = self.state.dataManager.getSourceEntries();
+		var origHash = self.state.dataManager.source.entries();
 		for (var i in origHash){
 			newHash.push({"id": origHash[i][0], "label": origHash[i][1].label.toLowerCase(), "count": origHash[i][1].count, "sum": origHash[i][1].sum});
 		}
@@ -2019,7 +2017,8 @@ ViewPort.prototype =  {
 
 	// Will return all partial matches in the cellDataHash structure.  Good for finding rows/columns of data
 	_getMatchingModels: function (key) {
-		var cellKeys = this.state.cellDataHash.keys();
+		//var cellKeys = this.state.cellDataHash.keys();
+		var cellKeys = this.state.dataManager.cell.keys();
 		var matchingKeys = [];
 		for (var i in cellKeys){
 			if (key == cellKeys[i].yID || key == cellKeys[i].xID){
@@ -2494,10 +2493,10 @@ ViewPort.prototype =  {
 		// } else {
 		// 	phenoLabel = null;
 		// }
-		if (this.state.dataManager.sourcesContains(d.xID)){
-			phenoLabel = this.state.dataManager.getSourceElement(d.xID).label;
-		} else if (this.state.dataManager.sourcesContains(d.yID)){
-			phenoLabel = this.state.dataManager.getSourceElement(d.yID).label;
+		if (this.state.dataManager.source.containsKey(d.xID)){
+			phenoLabel = this.state.dataManager.source.get(d.xID).label;
+		} else if (this.state.dataManager.source.containsKey(d.yID)){
+			phenoLabel = this.state.dataManager.source.get(d.yID).label;
 		} else {
 			phenoLabel = null;
 		}
@@ -2509,10 +2508,10 @@ ViewPort.prototype =  {
 		// } else {
 		// 	modelLabel = null;
 		// }
-		if (this.state.dataManager.targetsContains(d.xID)){
-			modelLabel = this.state.dataManager.getTargetElement(d.xID).label;
-		} else if (this.state.dataManager.targetsContains(d.yID)){
-			modelLabel = this.state.dataManager.getTargetElement(d.yID).label;
+		if (this.state.dataManager.target.containsKey(d.xID)) {
+			modelLabel = this.state.dataManager.target.get(d.xID).label;
+		} else if (this.state.dataManager.target.containsKey(d.yID)) {
+			modelLabel = this.state.dataManager.target.get(d.yID).label;
 		} else {
 			modelLabel = null;
 		}
@@ -2810,7 +2809,8 @@ ViewPort.prototype =  {
 
 		// This is for the new "Overview" target option 
 		if (this.state.targetSpeciesName == "Overview"){
-			data = this.state.cellDataHash.keys();
+			//MKD: data = this.state.cellDataHash.keys();
+			data = this.state.dataManager.cell.keys();
 		} else {
 			data = self.state.filteredCellData;
 		}
@@ -3146,7 +3146,8 @@ ViewPort.prototype =  {
  
 	_addGradients: function() {
 		var self = this;
-		var cellData = this.state.cellDataHash.values();
+		//var cellData = this.state.cellDataHash.values();
+		var cellData = this.state.dataManager.cell.values();
 		var temp_data = cellData.map(function(d) { return d.value[self.state.selectedCalculation];} );
 		var diff = d3.max(temp_data) - d3.min(temp_data);
 		var y1;
@@ -3472,7 +3473,7 @@ ViewPort.prototype =  {
 		//var fullset = this.state.origPhenotypeData;
 		var fullset = this.state.dataManager.getOriginalSource();
 		//var partialset = this.state.phenotypeListHash.keys();   //MKD: GET FROM DM
-		var partialset = this.state.dataManager.getSourceKeys();
+		var partialset = this.state.dataManager.source.keys();
 		var full = [];
 		var partial = [];
 		var unmatchedset = [];
@@ -3725,7 +3726,7 @@ ViewPort.prototype =  {
 
 	// collapse the expanded items for the current selected model targets
 	_collapse: function(curModel) {
-		var curData = this.state.dataManager.getTargetElement(curModel);
+		var curData = this.state.dataManager.target.get(curModel);
 		var modelInfo = {id: curModel, d: curData};
 
 		// check cached hashtable first 
@@ -3769,12 +3770,12 @@ ViewPort.prototype =  {
 	// insert into the model list
 	_insertionModelList: function (insertPoint, insertions) {
 		var newModelList = new Hashtable();
-		var sortedModelList= self._getSortedIDList( this.state.dataManager.getTargetEntries()); 
+		var sortedModelList= self._getSortedIDList( this.state.dataManager.target.entries()); 
 		var reorderPointOffset = insertions.size();
 		var insertionOccurred = false;
 
 		for (var i in sortedModelList){
-			var entry = this.state.dataManager.getTargetElement(sortedModelList[i]);
+			var entry = this.state.dataManager.target.get(sortedModelList[i]);
 			if (entry.pos == insertPoint) {
 				// add the entry, or gene in this case	
 				newModelList.put(sortedModelList[i], entry);
@@ -3801,7 +3802,7 @@ ViewPort.prototype =  {
 		var newModelList = new Hashtable();
 		var newModelData = [];
 		var removalKeys = removalList.genoTypes.keys();   // MKD: needs refactored
-		var sortedModelList= self._getSortedIDList(this.state.dataManager.getTargetEntries());
+		var sortedModelList= self._getSortedIDList(this.state.dataManager.target.entries());
 		var removeEntries = removalList.genoTypes.entries();
 
 		// get the max position that was inserted
@@ -3814,7 +3815,7 @@ ViewPort.prototype =  {
 		}
 
 		for (var i in sortedModelList){
-			var entry = this.state.dataManager.getTargetElement(sortedModelList[i]);
+			var entry = this.state.dataManager.target.get(sortedModelList[i]);
 			var found = false, cnt = 0;
 
 			// check list to make sure it needs removed
@@ -3969,7 +3970,7 @@ ViewPort.prototype =  {
 		var refresh = true;
 		var targets = new Hashtable();
 		var type = this._getIDTypeDetail(curModel);
-		var curData = this.state.dataManager.getTargetElement(curModel);
+		var curData = this.state.dataManager.target.get(curModel);
 		var modelData = {id: curModel, type: type, d: curData};
 
 		// check cached hashtable first 
