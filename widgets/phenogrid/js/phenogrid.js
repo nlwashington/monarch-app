@@ -74,19 +74,33 @@ function cellDataPointPrint(point) {
 * an object routine that will wrap data required for axis rendering
 *
 * @constructor
-* @param {integer} displayCount  ???
+* @param {integer} renderStartPos - render starting position
+* @param {integer} renderEndPos - render starting position
 * @param {Hashtable} items - item list to use for the axis display
 */
-var AxisGroup = function(displayCount,items)  {
-    this.displayCount = displayCount;
+var AxisGroup = function(renderStartPos, renderEndPos,items)  {
+	this.renderStartPos = renderStartPos;
+    this.renderEndPos = renderEndPos;
     this.items = items;
 };
 
 AxisGroup.prototype = {
 	constructor: AxisGroup,
-
-	getDisplayCount: function() {
-    	return this.displayCount;
+	startPos: {
+		configurable: true,
+	 	get: function() {return this.renderStartPos;},
+	 	set: function(val) { this.renderStartPos = val;}
+	},
+	endPos: {
+		configurable: true,
+	 	get: function() {return this.renderEndPos;},
+	 	set: function(val) { this.renderEndPos = val;}
+	},
+	getGroupRenderSize: function() {
+		return (this.renderEndPos - this.renderStartPos);
+	},
+	getRenderedItems: function() {
+		return this.items.slice(this.renderStartPos, this.renderEndPos);
 	},
 	getItems: function() {
     	return this.items;
@@ -136,7 +150,7 @@ AxisGroup.prototype = {
 				if (labelA < labelB) {return -1;}
 				if (labelA > labelB) {return 1;}
 				return 0;
-			}
+			});
 		}
     }
 };
@@ -167,14 +181,28 @@ DataManager.prototype = {
 		this.owlsimsData = [];			// raw owlsim
 		this.origSourceList;
 	},
-	/** gets the original source listing used for query */
+	/** 
+	* gets the original source listing used for query 
+	* @return {array}
+	*/
 	getOriginalSource: function() {
 		return this.qrySourceList;
 	},
+	/** 
+	* gets dataset
+	* @param {string} dataset - which data set array to return (i.e., source, target, cellData)
+	* @return {array} array of objects
+	*/	
 	entries: function(dataset) {
 		return this[dataset];
 	},
-	// gets a single element
+	// 
+	/** 
+	* gets a single element object from a data set 
+	* @param {string} dataset - which data set
+	* @param {string} key - key to search
+	* @return {object}
+	*/	
 	getElement: function (dataset, key) {
 		var i = 0, found = false, rec = null;
 		var len = eval('this.' + dataset + '.length');
@@ -188,15 +216,18 @@ DataManager.prototype = {
 		}
 		return rec;
 	},
-	/** searchers for value contained with a data set 
+	/** searchers for value element contained with a data set 
+	* @param {string} dataset - which data set to search
+	* @param {string} key - key to search
+	* @return {boolean}
 	*/
-	contains: function(dataset, what) {
+	contains: function(dataset, key) {
 		var i = 0;
 		var found = false;
 		var len = eval('this.' + dataset + '.length');
 		while (i < len && !found) {
 			rec = eval('this.' + dataset + '['+i+']');
-			if (rec.id == what) {
+			if (rec.id == key) {
 				found = true;
 				break;
 			}
@@ -351,9 +382,9 @@ DataManager.prototype = {
 						//this.cellData.put(cellPoint, hashDataVals);
 						this.cellData[species].push(dataVals);
 					}
-					}  //if
-				}
+				}  //if
 			}
+		}
 	}
 };
 
@@ -711,23 +742,14 @@ ViewPort.prototype =  {
 		this.state.w = this.state.m[1] - this.state.m[3];
 		this.state.currXIdx = this.state.dataDisplayCount;
 		this.state.currYIdx = this.state.dataDisplayCount;
+
+		// set default display limits
 		this.state.targetDisplayLimit = this.state.dataDisplayCount;
 		this.state.sourceDisplayLimit = this.state.dataDisplayCount;
-
-		// original position of hpo cache and load data
-
-// MKD: this should be refactored to use the dataManager
-		//this.state.phenoLength = this.state.phenotypeListHash.size();
-		//this.state.modelLength = this.state.modelListHash.size();		
-//		this.state.phenoLength = this.state.dataManager.getSourceSize();
-//		this.state.modelLength = this.state.dataManager.getTargetSize();
 
 		// shorthand for top of model region
 		this.state.yModelRegion = this.state.yoffsetOver + this.state.yoffset;
 		
-		// copy the phenotypeArray to phenotypeData array - now instead of ALL phenotypes, it will be limited to unique phenotypes for this disease
-		// do not alter this array: this.state.phenotypeData
-
 // MKD: these can be possible eliminated
 		this._adjustPhenotypeCount();
 	    this._adjustModelCount();
@@ -754,14 +776,14 @@ ViewPort.prototype =  {
 
     	/* only do this if the group doesn't exist - don't
        	recreate on reload */
-    	this.state.sourceAxis = new AxisGroup(self.state.sourceDisplayLimit,
+       	// creates AxisGroup with full source and target lists with default rendering range
+    	this.state.sourceAxis = new AxisGroup(0, self.state.sourceDisplayLimit,
 					  this.state.dataManager.source);
 		// sort source with default sorting type
 		this.state.sourceAxis.sort(this.state.selectedSort); 
     
-    	this.state.targetAxis =  new AxisGroup(self.state.targetDisplayLimit,
+    	this.state.targetAxis =  new AxisGroup(0, self.state.targetDisplayLimit,
 					   this.state.dataManager.target);
-//					   self.state.modelListHash);
     	self._setAxisRenderers();
 	},
 
@@ -775,7 +797,7 @@ ViewPort.prototype =  {
 	       self.state.xAxisRender = self.state.targetAxis;
 	       self.state.yAxisRender= self.state.sourceAxis;
 	   }
-       },
+    },
 
 	_loadSpinner: function() {
 		var element =$('<div><h3>Loading...</h3><div class="cube1"></div><div class="cube2"></div></div>');
@@ -785,9 +807,9 @@ ViewPort.prototype =  {
 
 	_reDraw: function() {
 	    //if (this.state.phenoLength !== 0 && this.state.filteredCellData.length !== 0){
-	    if (this.state.dataManager.source.length !== 0 && this.state.filteredCellData.length !== 0){
-		//var displayCount = this._getYLimit();
-		var displayCount = this.state.yAxisRender.getDisplayCount();
+	    if (this.state.dataManager.source.length !== 0 && this.state.dataManager.cellData.length !== 0) { //this.state.filteredCellData.length !== 0){
+
+			var displayRangeCount = this.state.yAxisRender.getFilteredRangeSize();
 
 			this._setComparisonType();
 			this._initCanvas();
@@ -795,7 +817,7 @@ ViewPort.prototype =  {
 
 			this.state.svg
 				.attr("width", "100%")
-				.attr("height", displayCount * this.state.widthOfSingleCell);
+				.attr("height", displayRangeCount * this.state.widthOfSingleCell);
 			var rectHeight = this._createRectangularContainers();
 
 			this._addPhenogridControls();
@@ -1329,6 +1351,7 @@ ViewPort.prototype =  {
 	},
 
 	// Previously filterSelected
+// MKD: REFACTOR THIS TO USE AXISGROUP
 	_filterDisplay: function(){
 		var self = this;
 		var axis_idx = 0;
@@ -1402,7 +1425,7 @@ console.log("load data...");
 		// Might be more efficent to load those three, cache them and then make an overview dataset and cache that as well.
 		// This is also called when axis is flipped, so might need to create those cached as well (which would be very simple)
 		// NOTE: MKD:  it doesn't appear the sim call can return all species at once; default seems to be homosap
-		if (this.state.targetSpeciesName === "Overview") {
+/*		if (this.state.targetSpeciesName === "Overview") {
 			this._loadOverviewData();
 			this._finishOverviewLoad();
 		} else {
@@ -1412,7 +1435,7 @@ console.log("load data...");
 			//this._loadSpeciesData(this.state.targetSpeciesName,20);
 			this._finishLoad();
 		}
-
+*/
 		this.state.hpoCacheBuilt = true;
 	},
 
@@ -1438,24 +1461,6 @@ console.log("load data...");
 		}
 		this.state.data[speciesName] = res;
 	},
-
-
-	_getLoadDataURL : function(phenotypeList,taxon,limit) {
-        var url = this.state.simServerURL;
-        // COMPARE CALL HACK - REFACTOR OUT
-        switch(this.state.owlSimFunction) {
-            case ('compare'):
-                url = url+'/compare/'+ phenotypeList.join("+") + "/" + this.state.geneList.join(',');
-                break;
-            default:
-                url = url+ this.state.simSearchQuery + phenotypeList.join("+") + "&target_species=" + taxon;
-                if (typeof(limit) !== 'undefined') {
-                    url += "&limit=" + limit;
-                }
-                break;
-        }
-        return url;
-    },
 
     /*
 	 * Make sure there are limit items in res --
@@ -1749,55 +1754,6 @@ console.log("load data...");
 		}
 
 		return filteredHash;
-	},
-
-	// Sorts the phenotypes
-	// mkd: SORTING WILL BE DONE BY AxisGroup
-	_sortSource: function () {
-		var self = this;
-		var sortType = self.state.selectedSort;
-		var sortFunc;
-//		var newHash = [];
-		//var origHash = self.state.phenotypeListHash.entries();
-		// for (var i in origHash){
-		// 	newHash.push({"id": origHash[i][0], "label": origHash[i][1].label.toLowerCase(), "count": origHash[i][1].count, "sum": origHash[i][1].sum});
-		// }
-
-		var source = self.state.dataManager.entries("source");		
-		if (sortType == 'Frequency') {
-			sortFunc = self._sortByFrequency;
-		} else if (sortType == 'Frequency and Rarity') {
-			sortFunc = self._sortByFrequencyRank;
-		} else if (sortType == 'Alphabetic') {
-			sortFunc = self._sortByAlphabetic;
-		}
-
-		if (typeof(sortFunc) !== 'undefined') {
-			source.sort(sortFunc);
-			// for (var j in source){
-			// 	self._updatePhenoPos(newHash[j].id,j);
-			// }
-		}
-	},
-
-	_sortByFrequency: function(a,b) {
-		var diff = b.count - a.count;
-		if (diff === 0) {
-			diff = a.id.localeCompare(b.id);
-		}
-		return diff;
-	},
-
-	_sortByFrequencyRank: function(a,b) {
-		return b.sum-a.sum;
-	},
-
-	_sortByAlphabetic: function(a,b) {
-		var labelA = a.label, 
-		labelB = b.label;
-		if (labelA < labelB) {return -1;}
-		if (labelA > labelB) {return 1;}
-		return 0;
 	},
 
 	// generic ajax call for all queries
