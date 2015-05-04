@@ -70,156 +70,220 @@ function cellDataPointPrint(point) {
 }
 
 
-// an obeject  routine that will wrap data required for axis rendering
-var AxisGroup = function(displayCount,itemsHash)  {
+/**
+* an object routine that will wrap data required for axis rendering
+*
+* @constructor
+* @param {integer} displayCount  ???
+* @param {Hashtable} items - item list to use for the axis display
+*/
+var AxisGroup = function(displayCount,items)  {
     this.displayCount = displayCount;
-    this.itemsHash = itemsHash;
+    this.items = items;
 };
 
 AxisGroup.prototype = {
 	constructor: AxisGroup,
-	
-	getItemCount: function() {
+
+	getDisplayCount: function() {
     	return this.displayCount;
 	},
-	getItemHash: function() {
-    	return this.itemsHash;
-	},
-	getItemEntries: function() {
-    	return this.itemsHash.entries();
+	getItems: function() {
+    	return this.items;
 	},
 	getAxisSize: function() {
-    	return this.itemsHash.size();
+    	return this.items.length;
 	},
-	itemsGet: function(key) {
-    	return this.itemsHash.get(key);
+	get: function(key) {
+		var i = 0, found = false, rec = null;
+		while (i < this.items.length && !found) {
+			rec = this.items[i];			
+			if (rec.id == key) {
+				found = true;
+				break;
+			}
+			i++;
+		}
+		return rec;
 	},
-	itemsContains: function(key) {
-    	return this.itemsHash.containsKey(key);
+	contains: function(key) {
+		if (this.get(key) != null)
+			return true;
+		else
+			return false;
 	},
-	itemsPut: function(key,val) {
-    	this.itemsHash.put(key,val);
+	itemsPut: function(val) {
+    	this.items.push(val);
+    },
+    sort: function(by) {
+ 		if (by == 'Frequency') {
+			sortFunc = self._sortByFrequency;
+			this.items.sort(function(a,b) {
+				var diff = b.count - a.count;
+				if (diff === 0) {
+					diff = a.id.localeCompare(b.id);
+				}
+				return diff;
+			});
+		} else if (by == 'Frequency and Rarity') {
+			this.items.sort(function(a,b) {
+				return b.sum-a.sum;
+			});
+		} else if (by == 'Alphabetic') {
+			this.items.sort(function(a,b) {
+				var labelA = a.label, 
+				labelB = b.label;
+				if (labelA < labelB) {return -1;}
+				if (labelA > labelB) {return 1;}
+				return 0;
+			}
+		}
     }
 };
 
 //***************************************
-// TEMP LOCATION OF DATASTORE
+// TEMP LOCATION OF DATAMANAGER
+/**
+ * DataManager handles all interaction with the data, from fetching from external 
+ * servers, transformation and storage.
+ *
+ * @constructor
+ * @param {object} parent - reference to parent calling object
+ * @param {string} serverUrl - sim server url
+ */
 var DataManager = function(parent, serverUrl) {
 	this.parent = parent;
-	this.expandedCache = [];   
-	this.source = new Hashtable();
-	this.target = new Hashtable();
-	this.cell = new Hashtable();
-	this.owlsimsData;			// raw owlsim
 	this.simServerURL = serverUrl;
-	this.origSourceList;
+	this.init();
 };
 
 DataManager.prototype = {
 	constructor: DataManager,
 	init: function() {
-		this.source = new Hashtable();   // phenoList
-		this.target = new Hashtable();	 // modelList
+		this.source = [];//new Hashtable();   // phenoList
+		this.target = []; //new Hashtable();	 // modelList
+		this.expandedCache = [];   
+		this.cellData = []; //new Hashtable();
+		this.owlsimsData = [];			// raw owlsim
+		this.origSourceList;
 	},
-/*
-	// gets a single element
-	getElement: function (dataset, key) {
-		return eval('this.' + dataset + '.get(' + key + ')');
-		//return this.sourceHash.get(key);
-	},
-	// put value onto source	
-	setValue: function (dataset, key,values) {
-		return eval('this.' + dataset + '.put(' + key + ',' + values + ' )');
-//		return this.sourceHash.put(key,values);
-	},
-	// gets all entries from source hash
-	getEntries: function (dataset) {
-		return eval('this.' + dataset + '.entries()');
-//		return this.sourceHash.entries();
-	},
-	// get list of keys
-	getKeys: function (dataset) {
-		return eval('this.' + dataset + '.keys()');
-	},
-	// evalutes if key is contained with dataset 
-	contains: function (dataset, key) {
-		return eval('this.' + dataset + '.containsKey(' + key +' )');	
-//		return this.sourceHash.containsKey(key);
-	},
-	// get size of hash
-	getSize: function(dataset) {
-		return eval('this.' + dataset + '.size()');
-//		return this.sourceHash.size();
-	},
-*/	
-	// gets the original source listing used for query
+	/** gets the original source listing used for query */
 	getOriginalSource: function() {
 		return this.qrySourceList;
 	},
-	// fetch and load data from ajax 
-	fetch: function(qrySourceList, speciesName) {
-		var res;
-    	var url = this.simServerURL + this.parent.state.simSearchQuery + qrySourceList.join("+");
-
-	    if (typeof(speciesName) !== 'undefined'  && speciesName != 'Overview') {
-	    	url += "&target_species=" + speciesName;
-	    } 
-	    if (typeof(limit) !== 'undefined') {
-	    	url += "&limit=" + limit;
+	entries: function(dataset) {
+		return this[dataset];
+	},
+	// gets a single element
+	getElement: function (dataset, key) {
+		var i = 0, found = false, rec = null;
+		var len = eval('this.' + dataset + '.length');
+		while (i < len && !found) {
+			rec = eval('this.' + dataset + '['+i+']');
+			if (rec.id == key) {
+				found = true;
+				break;
+			}
+			i++;
 		}
-	    
-		jQuery.ajax({
-			url: url, 
-			async : false,
-			dataType : 'json',
-			success : function(data) {
-				res = data;
-			},
-			error: function (xhr, errorType, exception) { 
-				var msg;
-				// Triggered if an error communicating with server
-				switch(xhr.status){
-				case 404:
-				case 500:
-				case 501:
-				case 502:
-				case 503:
-				case 504:
-				case 505:
-				default:
-					msg = "We're having some problems. Please try again soon.";
-					break;
-				case 0: 
-					msg = "Please check your network connection.";
-					break;
-				}
-				console.log(msg);
-			} 
-		});	
+		return rec;
+	},
+	/** searchers for value contained with a data set 
+	*/
+	contains: function(dataset, what) {
+		var i = 0;
+		var found = false;
+		var len = eval('this.' + dataset + '.length');
+		while (i < len && !found) {
+			rec = eval('this.' + dataset + '['+i+']');
+			if (rec.id == what) {
+				found = true;
+				break;
+			}
+			i++;
+		}
+		return found;
+	}, 	
 
-
-		// if (typeof (res) !=='undefined' && res !== null) {
-		// 	if (typeof(limit) !== 'undefined' && typeof(res.b) !== 'undefined' && res.b !== null && res.b.length < limit) {
-		// 		res = this._padSpeciesData(res,speciesName,limit);
-		// 	}
-		// }
-		//this.owlsimsData[speciesName] = res;  //TODO:MAY NEED TO STILL DO THIS REVISIT LATER
-		// save the original owlsim data
-		this.owlsimsData = res;
+	/** 	
+	* fetch and load data from external source
+	* @param {string} qrySourceList - list of source items to query
+	* @param {object/string} species - list of species
+	* @param {number} limit - value to limit targets returned
+	*/
+	fetch: function(qrySourceList, species, limit) {
+		var res, speciesName = [];
 
 		// save the original source listing
 		this.origSourceList = qrySourceList;
 
-		if (typeof (res) !=='undefined' && res !== null) {
-			// now transform data to there basic data structures
-			this.transform(res);
+		if (typeof(species) == 'object') speciesName = species;
+		else if (typeof(species) == 'string') {
+			speciesName = [species];
 		}
+
+		for (var i=0; i < speciesName.length; i++) {
+
+	    	var url = this.simServerURL + this.parent.state.simSearchQuery + qrySourceList.join("+");
+
+		    if (typeof(speciesName[i]) !== 'undefined') {
+		    	url += "&target_species=" + speciesName[i].taxon;
+		    } 
+		    if (typeof(limit) !== 'undefined') {
+		    	url += "&limit=" + limit;
+			}
+		    
+			jQuery.ajax({
+				url: url, 
+				async : false,
+				dataType : 'json',
+				success : function(data) {
+					res = data;
+				},
+				error: function (xhr, errorType, exception) { 
+					var msg;
+					// Triggered if an error communicating with server
+					switch(xhr.status){
+					case 404:
+					case 500:
+					case 501:
+					case 502:
+					case 503:
+					case 504:
+					case 505:
+					default:
+						msg = "We're having some problems. Please try again soon.";
+						break;
+					case 0: 
+						msg = "Please check your network connection.";
+						break;
+					}
+					console.log(msg);
+				} 
+			});	
+
+
+			// if (typeof (res) !=='undefined' && res !== null) {
+			// 	if (typeof(limit) !== 'undefined' && typeof(res.b) !== 'undefined' && res.b !== null && res.b.length < limit) {
+			// 		res = this._padSpeciesData(res,speciesName,limit);
+			// 	}
+			// }
+			// save the original owlsim data
+			this.owlsimsData[speciesName[i].name] = res;
+
+			if (typeof (res) !=='undefined' && res !== null) {
+				// now transform data to there basic data structures
+				this.transform(res, speciesName[i].name);  
+			}
+		}
+
 	},
 	// transforms data from raw owlsims 
-	transform: function(data) {	
+	transform: function(data, species) {	
 
 		if (typeof (data.b) !== 'undefined') {
 			console.log("transforming...");
+				this.cellData[species] = [];
 				var variantNum = 0;
 				for (var idx in data.b) {
 					var item = data.b[idx];
@@ -227,27 +291,28 @@ DataManager.prototype = {
 
 					// [vaa12] HACK.  NEEDED FOR ALLOWING MODELS OF THE SAME ID AKA VARIANTS TO BE DISPLAYED W/O OVERLAP
 					// SEEN MOST WITH COMPARE AND/OR EXOMISER DATA
-					if (this.target.containsKey(ID)){
+					if (this.contains("target", ID)){
 						ID += "_" + variantNum;
 						variantNum++;
 					}
 
 					// TODO: THIS NEEDS CHANGED TO CATEGORY (I THINK MONARCH TEAM MENTIONED ADDING THIS)
 					type = this.parent.defaultApiEntity;
-					// for (var j in this.state.apiEntityMap) {
-					// 	if (ID.indexOf(this.state.apiEntityMap[j].prefix) === 0) {
-					// 		type = this.state.apiEntityMap[j].apifragment;
-					// 	}
-					// }
+					for (var j in this.parent.state.apiEntityMap) {
+					 	if (ID.indexOf(this.parent.state.apiEntityMap[j].prefix) === 0) {
+					 		type = this.parent.state.apiEntityMap[j].apifragment;
+					 	}
+					}
 					
 					// build the target list
-					var hashData = {"label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
+					var hashData = {"id":ID, "label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
 									"pos": parseInt(idx), "rank": parseInt(idx), "score": item.score.score};
-					this.target.put(ID, hashData);
+					//this.target.put(ID, hashData);
+					this.target.push(hashData);
 
 					// matches is an array of all model matches
 					var matches = data.b[idx].matches;
-					var curr_row, lcs, cellPoint, hashDataVals;
+					var curr_row, lcs, cellPoint, dataVals;
 					var currID_a, currID_lcs;
 					if (typeof(matches) !== 'undefined' && matches.length > 0) {
 
@@ -260,29 +325,31 @@ DataManager.prototype = {
 						lcs = this.parent._normalizeIC(curr_row);
 
 						// build a list of sources
-						if (!this.source.containsKey(currID_a)) {
-							hashDataVals = {"label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), "pos": 0, 
+						//if (!this.source.containsKey(currID_a)) {
+						if (!this.contains("source", currID_a)) {
+							dataVals = {"id":currID_a, "label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), "pos": 0, 
 											"count": 0, "sum": 0, "type": "phenotype"};
-							this.source.put(currID_a, hashDataVals);
+
+							this.source.push(dataVals);
+							//this.source.put(currID_a, hashDataVals);
 							// if (!this.state.hpoCacheBuilt && this.state.preloadHPO){
 							// 	this._getHPO(this._getConceptId(curr_row.a.id));
 							// }
 						}
-
 						// building cellDataHash
-						cellPoint = new cellDataPoint(ID, currID_a);
-				//	this._updateSortVals(this._getConceptId(curr_row.a.id), parseFloat(curr_row.lcs.IC));
-						// Moved this from being it's own function into here;
-						// TODO: used for sorting somehow, will revisit this later
-						var values = this.source.get(currID_a);
+						
+						cellPoint = new cellDataPoint(ID, currID_a);  // MKD:  Not sure to use this anymore
+
+						var values = this.getElement('source', currID_a);
 						values.count += 1;
 						values.sum += parseFloat(curr_row.lcs.IC);
-						this.source.put(currID_a,values);
+						this.source.push(values);
 						
-						hashDataVals = {"value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": currID_lcs, 
+						dataVals = {"id": ID, "value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": currID_lcs, 
 						"subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, 
 						"b_id": currID_b, "b_IC": parseFloat(curr_row.b.IC)};
-						this.cell.put(cellPoint, hashDataVals);
+						//this.cellData.put(cellPoint, hashDataVals);
+						this.cellData[species].push(dataVals);
 					}
 					}  //if
 				}
@@ -543,7 +610,6 @@ ViewPort.prototype =  {
 			this.state.simServerURL=this.state.serverURL;
 		}
 		this.state.data = {};
-		// MKD: can init the DataManager here
 		this.state.dataManager = new DataManager(this, this.state.simServerURL);
 		this.state.dataViewPort = new ViewPort();
 
@@ -585,11 +651,13 @@ ViewPort.prototype =  {
 
 	//init is now reduced down completely to loading
 	_init: function() {
+
+		console.log("init...");
 		this.element.empty();
 		this._loadSpinner();
 
 //MKD: may be able to eliminate, restricts how many pheno are displayed
-		this.state.yAxisDisplayLimit = this._calcYAxisDisplayLimit();
+		this.state.sourceDisplayLimit = this._calcYAxisDisplayLimit();
 
 		// save a copy of the original phenotype data;  MKD: datamanager will save this now
 		//this.state.origPhenotypeData = this.state.phenotypeData.slice();
@@ -599,16 +667,23 @@ ViewPort.prototype =  {
 //		this.state.phenotypeData = this._parseQuerySourceList(this.state.phenotypeData);
 		var querySourceList = this._parseQuerySourceList(this.state.phenotypeData);
 
-		// dataManager fetch will initialize data
-		this.state.dataManager.fetch(querySourceList, this.state.targetSpeciesName);
+		
+		var listofTargetSpecies = [];
+		if (this.state.targetSpeciesName == "Overview") {
+			listofTargetSpecies = this.state.targetSpeciesList;
+		} else {
+			listofTargetSpecies.push(this.state.targetSpeciesName);
+		}
+		// dataManager fetch will initialize source and target data
+		this.state.dataManager.fetch(querySourceList, listofTargetSpecies);
 
-		this._loadData();   // MKD: datamanager.fetch will replace this
 
-		this._setLoadedValues();
+//		this._loadData();   // MKD: datamanager.fetch will replace this
+
+		this._setLoadedValues();   //MKD: refactor
 
 		this._processDisplay();
 
-		console.log("init...");
 	},
 
 	//Originally part of _init
@@ -630,14 +705,14 @@ ViewPort.prototype =  {
 		}
 
 	    this._setSelectedCalculation(this.state.selectedCalculation);
-		this._setSelectedSort(this.state.selectedSort);
+		this._setDefaultSelectedSort(this.state.selectedSort);
 
 
 		this.state.w = this.state.m[1] - this.state.m[3];
 		this.state.currXIdx = this.state.dataDisplayCount;
 		this.state.currYIdx = this.state.dataDisplayCount;
-		this.state.modelDisplayCount = this.state.dataDisplayCount;
-		this.state.yAxisDisplayLimit = this.state.dataDisplayCount;
+		this.state.targetDisplayLimit = this.state.dataDisplayCount;
+		this.state.sourceDisplayLimit = this.state.dataDisplayCount;
 
 		// original position of hpo cache and load data
 
@@ -657,11 +732,11 @@ ViewPort.prototype =  {
 		this._adjustPhenotypeCount();
 	    this._adjustModelCount();
 
-	        this._createAxisRenderingGroups();
-		//this._setAxisValues();
+	    // initialize axis groups
+	    this._createAxisRenderingGroups();
 	    
-	       this.state.currXIdx = this.state.xAxisRender.getItemCount();
-    	       this.state.currYIdx = this.state.yAxisRender.getItemCount();
+	    this.state.currXIdx = this.state.xAxisRender.getDisplayCount();
+    	this.state.currYIdx = this.state.yAxisRender.getDisplayCount();
 		this._createColorScale();
 	},
 
@@ -679,18 +754,18 @@ ViewPort.prototype =  {
 
     	/* only do this if the group doesn't exist - don't
        	recreate on reload */
-       	//MKD: GET DATA FROM DM
-    	this.state.sourceAxis = new AxisGroup(self.state.yAxisDisplayLimit,
+    	this.state.sourceAxis = new AxisGroup(self.state.sourceDisplayLimit,
 					  this.state.dataManager.source);
-//					  self.state.phenotypeListHash);
+		// sort source with default sorting type
+		this.state.sourceAxis.sort(this.state.selectedSort); 
     
-    	this.state.targetAxis =  new AxisGroup(self.state.modelDisplayCount,
+    	this.state.targetAxis =  new AxisGroup(self.state.targetDisplayLimit,
 					   this.state.dataManager.target);
 //					   self.state.modelListHash);
     	self._setAxisRenderers();
 	},
 
-       _setAxisRenderers: function() {
+    _setAxisRenderers: function() {
 	   var self= this;
 
 	   if (self.state.invertAxis) {
@@ -710,9 +785,9 @@ ViewPort.prototype =  {
 
 	_reDraw: function() {
 	    //if (this.state.phenoLength !== 0 && this.state.filteredCellData.length !== 0){
-	    if (this.state.dataManager.source.size() !== 0 && this.state.filteredCellData.length !== 0){
+	    if (this.state.dataManager.source.length !== 0 && this.state.filteredCellData.length !== 0){
 		//var displayCount = this._getYLimit();
-		var displayCount = this.state.yAxisRender.getItemCount();
+		var displayCount = this.state.yAxisRender.getDisplayCount();
 
 			this._setComparisonType();
 			this._initCanvas();
@@ -830,8 +905,8 @@ ViewPort.prototype =  {
 		var mHeight = self.state.heightOfSingleCell;
 		// create a blank grid to match the size of the phenogrid grid
 		var data = [];
-   	        var rowCt = self.state.yAxisRender.getItemCount();
-   	        var colCt = self.state.xAxisRender.getItemCount();
+   	        var rowCt = self.state.yAxisRender.getDisplayCount();
+   	        var colCt = self.state.xAxisRender.getDisplayCount();
 	     
 
 		for (var k = 0; k < rowCt; k++){
@@ -871,8 +946,8 @@ ViewPort.prototype =  {
 	// For the selection area, see if you can convert the selection to the idx of the x and y then redraw the bigger grid 
 	_createOverviewSection: function() {
 		var self = this;
-	    var yCount = self.state.yAxisRender.getItemCount();
-	    var xCount = self.state.xAxisRender.getItemCount();
+	    var yCount = self.state.yAxisRender.getDisplayCount();
+	    var xCount = self.state.xAxisRender.getDisplayCount();
 		var startYIdx = this.state.currYIdx - yCount;
 		var startXIdx = this.state.currXIdx - xCount;
 
@@ -905,7 +980,7 @@ ViewPort.prototype =  {
 
 		// add the items using smaller rects
 		//var cellData = self._mergeHashEntries(self.state.cellDataHash);
-		var cellData = self._mergeHashEntries(self.state.dataManager.cell);
+		var cellData = self._mergeHashEntries(self.state.dataManager.cellData);
 
 		var cell_rects = this.state.svg.selectAll(".mini_cells")
 			.data(cellData, function(d) {return d.yID + d.xID;});
@@ -931,10 +1006,10 @@ ViewPort.prototype =  {
 								   d.value[self.state.selectedCalculation]);
 			});
 
-     	        var lastYId = self._returnID(this.state.yAxisRender.getItemHash(),yCount - 1);
-	    var lastXId = self._returnID(this.state.xAxisRender.getItemHash(),xCount - 1);
-   	        var startYId = self._returnID(this.state.yAxisRender.getItemHash(),startYIdx);
-	    var startXId = self._returnID(this.state.xAxisRender.getItemHash(),startXIdx);
+     	        var lastYId = self._returnID(this.state.yAxisRender.getItems(),yCount - 1);
+	    var lastXId = self._returnID(this.state.xAxisRender.getItems(),xCount - 1);
+   	        var startYId = self._returnID(this.state.yAxisRender.getItems(),startYIdx);
+	    var startXId = self._returnID(this.state.xAxisRender.getItems(),startXIdx);
 
 		var selectRectX = self.state.smallXScale(startXId);
 		var selectRectY = self.state.smallYScale(startYId);
@@ -1141,9 +1216,9 @@ ViewPort.prototype =  {
 		var self = this;
 		var sortDataList = [];
 		var mods = [];
-   	        sortDataList = self._getSortedIDList(self.state.yAxisRender.getItemEntries());
+   	        sortDataList = self._getSortedIDList(self.state.yAxisRender.getItems());
 
-	    mods = self._getSortedIDList(self.state.xAxisRender.getItemEntries());
+	    mods = self._getSortedIDList(self.state.xAxisRender.getItems());
 
 		this.state.smallYScale = d3.scale.ordinal()
 			.domain(sortDataList.map(function (d) {return d; }))
@@ -1219,14 +1294,14 @@ ViewPort.prototype =  {
 		self.state.selectedCalculation = tempdata[0].calc;
 	},
 
-	_setSelectedSort: function(type) {
+	_setDefaultSelectedSort: function(type) {
 		var self = this;
 		self.state.selectedSort = type;
 	},
 
 	// Previously processSelected
 	_processDisplay: function(){
-		this._sortPhenotypeHash();
+//		this._sortSource();  // MKD: refactored to AxisGroup
 		this._filterDisplay();
 		this.state.unmatchedSources = this._getUnmatchedSources();
 		this.element.empty();
@@ -1238,18 +1313,18 @@ ViewPort.prototype =  {
 // MKD: this should work off AxisGroup or based on Viewport/x/y; can we eliminate?	
 	_adjustPhenotypeCount: function() {
 		// we need to adjust the display counts and indexing if there are fewer phenotypes than the default
-		//if (this.state.phenoLength < this.state.yAxisDisplayLimit) {
-		if (this.state.dataManager.source.size() < this.state.yAxisDisplayLimit) {
-			// this.state.yAxisDisplayLimit = this.state.phenoLength;
-			this.state.yAxisDisplayLimit = this.state.dataManager.source.size();
+		//if (this.state.phenoLength < this.state.sourceDisplayLimit) {
+		if (this.state.dataManager.source.length < this.state.sourceDisplayLimit) {
+			// this.state.sourceDisplayLimit = this.state.phenoLength;
+			this.state.sourceDisplayLimit = this.state.dataManager.source.length;
 		}
 	},
 
 // MKD: this should work off AxisGroup or based on Viewport/x/y; can we eliminate?
 	_adjustModelCount: function() {
 		// we need to adjust the display counts and indexing if there are fewer models
-		if (this.state.modelLength < this.state.modelDisplayCount) {
-			this.state.modelDisplayCount = this.state.modelLength;
+		if (this.state.modelLength < this.state.targetDisplayLimit) {
+			this.state.targetDisplayLimit = this.state.modelLength;
 		}
 	},
 
@@ -1259,14 +1334,14 @@ ViewPort.prototype =  {
 		var axis_idx = 0;
 		var sortedYArray = [];
 
-	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.getItemCount();
+	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.getDisplayCount();
 		var	displayYLimiter = this.state.currYIdx;
-	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.getItemCount();
+	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.getDisplayCount();
 		var	displayXLimiter = this.state.currXIdx;
 
-	    this.state.filteredYAxis = self._filterListHash(this.state.yAxisRender.getItemHash(),
+	    this.state.filteredYAxis = self._filterListHash(this.state.yAxisRender.getItems(),
 							    startYIdx,displayYLimiter);
-	    this.state.filteredXAxis = self._filterListHash(this.state.xAxisRender.getItemHash(),
+	    this.state.filteredXAxis = self._filterListHash(this.state.xAxisRender.getItems(),
 							    startXIdx,displayXLimiter);
 
 		sortedYArray = self._getSortedIDListStrict(self.state.filteredYAxis.entries());
@@ -1291,6 +1366,7 @@ ViewPort.prototype =  {
 	// I may need to rename this method "getModelData". It should extract the models and reformat the data 
 	_loadData: function() {
 
+console.log("load data...");
 		/*
 		 * set the owlsimFunction
 		 * there are three possibilities
@@ -1347,6 +1423,7 @@ ViewPort.prototype =  {
 		var res;
 		//console.log("this.state.simServerURL is..."+this.state.simServerURL);
 		// COMPARE CALL HACK - REFACTOR OUT
+		console.log("getting species data...");
 		if(jQuery.isEmptyObject(this.state.providedData)) {
 			var url = this._getLoadDataURL(phenotypeList,taxon,limit);
 			res = this._ajaxLoadData(speciesName,url);
@@ -1582,8 +1659,9 @@ ViewPort.prototype =  {
 	},
 
 	// Sets the correct position for the value on the yAxis on where it belongs in the grid/axis
+// MKD: refactor to use ViewPort???
 	_setYPosHash: function(key,ypos) {
-  	        var values = this.state.yAxisRender.itemsGet(key);
+  	        var values = this.state.yAxisRender.get(key);
 		values.ypos = ypos;
 	    this.state.yAxisRender.itemsPut(key,values);
 	},
@@ -1610,11 +1688,11 @@ ViewPort.prototype =  {
 
 	// Returns axis data from a ID of models or phenotypes
 	_getAxisData: function(key) {
-	        if (this.state.yAxisRender.itemsContains(key)){
-		    return this.state.yAxisRender.itemsGet(key);
+	        if (this.state.yAxisRender.contains(key)){
+		    return this.state.yAxisRender.get(key);
 		}
-  	        else if (this.state.xAxisRender.itemsContains(key)){
-		    return this.state.xAxisRender.itemsGet(key);
+  	        else if (this.state.xAxisRender.contains(key)){
+		    return this.state.xAxisRender.get(key);
 		}
 		else { return false; }
 	},
@@ -1645,7 +1723,7 @@ ViewPort.prototype =  {
 		var newFilteredCell = [];
 		//var currentCellData = this.state.cellDataHash.entries();
 //MKD: refactor to DM		
-		var currentCellData = this.state.dataManager.cell.entries();
+		var currentCellData = this.state.dataManager.cellData.entries();
 
 		for (var i in currentCellData){
 			if (this.state.filteredXAxis.containsKey(currentCellData[i][0].xID) && this.state.filteredYAxis.containsKey(currentCellData[i][0].yID)){
@@ -1659,7 +1737,7 @@ ViewPort.prototype =  {
 	},
 
 	// Filters down the axis hashtables based on what the limits are
-// MKD: refactor to Viewport???	
+// MKD: refactor to AxisGroup???	
 	_filterListHash: function (hash,start,end) {
 		var filteredHash = new Hashtable();
 		var oldHash = hash.entries();
@@ -1674,34 +1752,35 @@ ViewPort.prototype =  {
 	},
 
 	// Sorts the phenotypes
-	// mkd: SORTING WILL BE DONE BY DATAMANAGER
-	_sortPhenotypeHash: function () {
+	// mkd: SORTING WILL BE DONE BY AxisGroup
+	_sortSource: function () {
 		var self = this;
 		var sortType = self.state.selectedSort;
 		var sortFunc;
-		var newHash = [];
+//		var newHash = [];
 		//var origHash = self.state.phenotypeListHash.entries();
-		var origHash = self.state.dataManager.source.entries();
-		for (var i in origHash){
-			newHash.push({"id": origHash[i][0], "label": origHash[i][1].label.toLowerCase(), "count": origHash[i][1].count, "sum": origHash[i][1].sum});
-		}
+		// for (var i in origHash){
+		// 	newHash.push({"id": origHash[i][0], "label": origHash[i][1].label.toLowerCase(), "count": origHash[i][1].count, "sum": origHash[i][1].sum});
+		// }
+
+		var source = self.state.dataManager.entries("source");		
 		if (sortType == 'Frequency') {
-			sortFunc = self._sortPhenotypesModelHash;
+			sortFunc = self._sortByFrequency;
 		} else if (sortType == 'Frequency and Rarity') {
-			sortFunc = self._sortPhenotypesRankHash;
+			sortFunc = self._sortByFrequencyRank;
 		} else if (sortType == 'Alphabetic') {
-			sortFunc = self._sortPhenotypesAlphabeticHash;
+			sortFunc = self._sortByAlphabetic;
 		}
 
 		if (typeof(sortFunc) !== 'undefined') {
-			newHash.sort(sortFunc);
-			for (var j in newHash){
-				self._updatePhenoPos(newHash[j].id,j);
-			}
+			source.sort(sortFunc);
+			// for (var j in source){
+			// 	self._updatePhenoPos(newHash[j].id,j);
+			// }
 		}
 	},
 
-	_sortPhenotypesModelHash: function(a,b) {
+	_sortByFrequency: function(a,b) {
 		var diff = b.count - a.count;
 		if (diff === 0) {
 			diff = a.id.localeCompare(b.id);
@@ -1709,11 +1788,11 @@ ViewPort.prototype =  {
 		return diff;
 	},
 
-	_sortPhenotypesRankHash: function(a,b) {
+	_sortByFrequencyRank: function(a,b) {
 		return b.sum-a.sum;
 	},
 
-	_sortPhenotypesAlphabeticHash: function(a,b) {
+	_sortByAlphabetic: function(a,b) {
 		var labelA = a.label, 
 		labelB = b.label;
 		if (labelA < labelB) {return -1;}
@@ -2018,7 +2097,7 @@ ViewPort.prototype =  {
 	// Will return all partial matches in the cellDataHash structure.  Good for finding rows/columns of data
 	_getMatchingModels: function (key) {
 		//var cellKeys = this.state.cellDataHash.keys();
-		var cellKeys = this.state.dataManager.cell.keys();
+		var cellKeys = this.state.dataManager.cellData.keys();
 		var matchingKeys = [];
 		for (var i in cellKeys){
 			if (key == cellKeys[i].yID || key == cellKeys[i].xID){
@@ -2132,9 +2211,9 @@ ViewPort.prototype =  {
 		if (stickytooltip.isdocked){ return; }
 
 		var self = this;
-		var info = self._getAxisData(data);
+		var info = self._getAxisData(data);   // MKD: is this needed???
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getItemCount();
+	    var displayCount = self.state.yAxisRender.getDisplayCount();
 		var concept = self._getConceptId(data);
 		//console.log("selecting x item.."+concept);
 		var appearanceOverrides;
@@ -2453,7 +2532,7 @@ ViewPort.prototype =  {
 		}
 		var wdt = this.state.axis_pos_list[1] + ((this.state.axis_pos_list[2] - this.state.axis_pos_list[1])/2);
 	    //var displayCount = this._getYLimit();
-	    var displayCount = this.state.yAxisRender.getItemCount();
+	    var displayCount = this.state.yAxisRender.getDisplayCount();
 		var hgt = displayCount * 10 + this.state.yoffset;
 		var yv, wv;
 
@@ -2686,8 +2765,8 @@ ViewPort.prototype =  {
 		var hwidthAndGap = self.state.widthOfSingleCell;
 		var totCt = 0;
 		var parCt = 0;
-	    var displayCount = self.state.yAxisRender.getItemCount();
-	    var displayCountX = self.state.xAxisRender.getItemCount();
+	    var displayCount = self.state.yAxisRender.getDisplayCount();
+	    var displayCountX = self.state.xAxisRender.getDisplayCount();
 
 		// Have temporarly until fix for below during Axis Flip
 		if (self.state.targetSpeciesName == "Overview"){
@@ -2764,7 +2843,7 @@ ViewPort.prototype =  {
 	_highlightIntersection: function(curr_data, obj){
 		var self = this;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getItemCount();
+	    var displayCount = self.state.yAxisRender.getDisplayCount();
 		// Highlight Row
 		var highlight_rect = self.state.svg.append("svg:rect")
 			.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
@@ -2810,7 +2889,7 @@ ViewPort.prototype =  {
 		// This is for the new "Overview" target option 
 		if (this.state.targetSpeciesName == "Overview"){
 			//MKD: data = this.state.cellDataHash.keys();
-			data = this.state.dataManager.cell.keys();
+			data = this.state.dataManager.cellData.keys();
 		} else {
 			data = self.state.filteredCellData;
 		}
@@ -2905,7 +2984,7 @@ ViewPort.prototype =  {
 		var modelLineGap = 30;
 		var lineY = this.state.yoffset + modelLineGap;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getItemCount();
+	    var displayCount = self.state.yAxisRender.getDisplayCount();
 		//this.state.svg.selectAll("path.domain").remove();
 		//this.state.svg.selectAll("text.scores").remove();
 		//this.state.svg.selectAll("#specieslist").remove();
@@ -3048,7 +3127,7 @@ ViewPort.prototype =  {
 		var self = this;
 		this._buildAxisPositionList();
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getItemCount();
+	    var displayCount = self.state.yAxisRender.getDisplayCount();
 
 		var gridHeight = displayCount * self.state.heightOfSingleCell + 10;
 		if (gridHeight < self.state.minHeight) {
@@ -3147,7 +3226,7 @@ ViewPort.prototype =  {
 	_addGradients: function() {
 		var self = this;
 		//var cellData = this.state.cellDataHash.values();
-		var cellData = this.state.dataManager.cell.values();
+		var cellData = this.state.dataManager.cellData.values();
 		var temp_data = cellData.map(function(d) { return d.value[self.state.selectedCalculation];} );
 		var diff = d3.max(temp_data) - d3.min(temp_data);
 		var y1;
@@ -3155,7 +3234,7 @@ ViewPort.prototype =  {
 		// only show the scale if there is more than one value represented in the scale
 		if (diff > 0) {
 			// baseline for gradient positioning
-			if (this.state.phenoLength < this.state.yAxisDisplayLimit) {
+			if (this.state.phenoLength < this.state.sourceDisplayLimit) {
 				y1 = 172;
 			} else {
 				y1 = 262;
