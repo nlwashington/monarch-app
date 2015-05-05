@@ -96,18 +96,48 @@ AxisGroup.prototype = {
 	 	get: function() {return this.renderEndPos;},
 	 	set: function(val) { this.renderEndPos = val;}
 	},
+	/**
+	* provides the subset range group size to rendered
+	* @return {integer} size of group range
+	*/
 	getGroupRenderSize: function() {
 		return (this.renderEndPos - this.renderStartPos);
 	},
+	/**
+	* provides the subset group to be rendered
+	* @return {array} array of objects of items
+	*/	
 	getRenderedItems: function() {
 		return this.items.slice(this.renderStartPos, this.renderEndPos);
 	},
 	getItems: function() {
     	return this.items;
 	},
+	isRendered: function(key) {
+		var renderedList = getRenderedItems();
+		var i = 0, found = false, rec = null;
+		while (i < renderedList.length && !found) {
+			rec = renderedList[i];			
+			if (rec.id == key) {
+				found = true;
+				break;
+			}
+			i++;
+		}
+		return found;
+	},
+	/**
+	* provides the size of the entire axis
+	* @return {integer} size of axis
+	*/	
 	getAxisSize: function() {
     	return this.items.length;
 	},
+	/**
+	* gets a single item element from the axis 
+	* @param {string} key
+	* @return {object} item element
+	*/	
 	get: function(key) {
 		var i = 0, found = false, rec = null;
 		while (i < this.items.length && !found) {
@@ -174,12 +204,21 @@ var DataManager = function(parent, serverUrl) {
 DataManager.prototype = {
 	constructor: DataManager,
 	init: function() {
-		this.source = [];//new Hashtable();   // phenoList
-		this.target = []; //new Hashtable();	 // modelList
+		this.source = []; // phenoList
+		this.target = []; // modelList
 		this.expandedCache = [];   
-		this.cellData = []; //new Hashtable();
+		this.cellData = []; 
 		this.owlsimsData = [];			// raw owlsim
 		this.origSourceList;
+		this.initialized = false;
+	},
+	isInitialized: function() {
+		if (this.source.length > 0 && this.target.length > 0) {
+			this.initialized = true;
+		} else {
+			this.initialized = false;
+		}
+		return this.initialized;
 	},
 	/** 
 	* gets the original source listing used for query 
@@ -195,6 +234,21 @@ DataManager.prototype = {
 	*/	
 	entries: function(dataset) {
 		return this[dataset];
+	},
+	/**
+	* returns a list of key (id) values from a given dataset
+	*
+	* @param {string} dataset - which data set array to return (i.e., source, target, cellData)
+	* @return {array} keys
+	*/
+	keys: function (dataset) {
+		var keys = [];
+		var len = eval('this.' + dataset + '.length');
+		for (var i=0; i < len; i++) {
+			var id = eval('this.' + dataset + '['+i+'].id');
+			keys.push(id);
+		}
+		return keys;
 	},
 	// 
 	/** 
@@ -216,6 +270,26 @@ DataManager.prototype = {
 		}
 		return rec;
 	},
+	/** 
+	* returns the index of a single element object from a data set 
+	* @param {string} dataset - which data set
+	* @param {string} key - key to search
+	* @return {integer} index
+	*/	
+	getElementIndex: function (dataset, key) {
+		var i = 0, found = false, index = -1;
+		var len = eval('this.' + dataset + '.length');
+		while (i < len && !found) {
+			rec = eval('this.' + dataset + '['+i+']');
+			if (rec.id == key) {
+				found = true;
+				index = i;
+				break;
+			}
+			i++;
+		}
+		return index;
+	},
 	/** searchers for value element contained with a data set 
 	* @param {string} dataset - which data set to search
 	* @param {string} key - key to search
@@ -226,7 +300,7 @@ DataManager.prototype = {
 		var found = false;
 		var len = eval('this.' + dataset + '.length');
 		while (i < len && !found) {
-			rec = eval('this.' + dataset + '['+i+']');
+			var rec = eval('this.' + dataset + '['+i+']');
 			if (rec.id == key) {
 				found = true;
 				break;
@@ -309,7 +383,13 @@ DataManager.prototype = {
 		}
 
 	},
-	// transforms data from raw owlsims 
+
+	/** 	
+	* transforms data from raw owlsims into simplified format
+	*
+	* @param {object} data - owlsims structured data
+	* @param {string} species - species name
+	*/	
 	transform: function(data, species) {	
 
 		if (typeof (data.b) !== 'undefined') {
@@ -318,65 +398,64 @@ DataManager.prototype = {
 				var variantNum = 0;
 				for (var idx in data.b) {
 					var item = data.b[idx];
-					ID = this.parent._getConceptId(item.id);
+					var targetID = this.parent._getConceptId(item.id);
 
 					// [vaa12] HACK.  NEEDED FOR ALLOWING MODELS OF THE SAME ID AKA VARIANTS TO BE DISPLAYED W/O OVERLAP
 					// SEEN MOST WITH COMPARE AND/OR EXOMISER DATA
-					if (this.contains("target", ID)){
-						ID += "_" + variantNum;
+					if (this.contains("target", targetID)){
+						targetID += "_" + variantNum;
 						variantNum++;
 					}
 
 					// TODO: THIS NEEDS CHANGED TO CATEGORY (I THINK MONARCH TEAM MENTIONED ADDING THIS)
 					type = this.parent.defaultApiEntity;
 					for (var j in this.parent.state.apiEntityMap) {
-					 	if (ID.indexOf(this.parent.state.apiEntityMap[j].prefix) === 0) {
+					 	if (targetID.indexOf(this.parent.state.apiEntityMap[j].prefix) === 0) {
 					 		type = this.parent.state.apiEntityMap[j].apifragment;
 					 	}
 					}
 					
 					// build the target list
-					var hashData = {"id":ID, "label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
+					var hashData = {"id":targetID, "label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
 									"pos": parseInt(idx), "rank": parseInt(idx), "score": item.score.score};
-					//this.target.put(ID, hashData);
 					this.target.push(hashData);
 
 					// matches is an array of all model matches
 					var matches = data.b[idx].matches;
 					var curr_row, lcs, cellPoint, dataVals;
-					var currID_a, currID_lcs;
+					var sourceID_a, currID_lcs;
 					if (typeof(matches) !== 'undefined' && matches.length > 0) {
 
+						var sum =0, count=0;
 					for (var matchIdx in matches) {
 						curr_row = matches[matchIdx];
-						currID_a = this.parent._getConceptId(curr_row.a.id);
+						sourceID_a = this.parent._getConceptId(curr_row.a.id);
 						currID_b = this.parent._getConceptId(curr_row.b.id)
 						currID_lcs = this.parent._getConceptId(curr_row.lcs.id);
 
 						lcs = this.parent._normalizeIC(curr_row);
 
 						// build a list of sources
-						//if (!this.source.containsKey(currID_a)) {
-						if (!this.contains("source", currID_a)) {
-							dataVals = {"id":currID_a, "label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), "pos": 0, 
-											"count": 0, "sum": 0, "type": "phenotype"};
+						if (!this.contains("source", sourceID_a)) {
 
+							dataVals = {"id":sourceID_a, "label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), "pos": 0, 
+											"count": count, "sum": sum, "type": "phenotype"};
 							this.source.push(dataVals);
-							//this.source.put(currID_a, hashDataVals);
+							//this.source.put(sourceID_a, hashDataVals);
 							// if (!this.state.hpoCacheBuilt && this.state.preloadHPO){
 							// 	this._getHPO(this._getConceptId(curr_row.a.id));
 							// }
 						}
-						// building cellDataHash
-						
-						cellPoint = new cellDataPoint(ID, currID_a);  // MKD:  Not sure to use this anymore
 
-						var values = this.getElement('source', currID_a);
-						values.count += 1;
-						values.sum += parseFloat(curr_row.lcs.IC);
-						this.source.push(values);
-						
-						dataVals = {"id": ID, "value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": currID_lcs, 
+						// update values for sorting
+						var index = this.getElementIndex("source", sourceID_a);
+						if(  index > -1) {
+							this.source[index].count += 1;
+							this.source[index].sum += parseFloat(curr_row.lcs.IC);
+						}
+
+						// building cellDataHash
+						dataVals = {"id": sourceID_a, "value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": currID_lcs, 
 						"subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, 
 						"b_id": currID_b, "b_IC": parseFloat(curr_row.b.IC)};
 						//this.cellData.put(cellPoint, hashDataVals);
@@ -388,36 +467,6 @@ DataManager.prototype = {
 	}
 };
 
-// this represents the current viewport or window (currently displayed range) over the cellData,
-// which is viewable 'window' by the D3
-var ViewPort = function() {
-	this.indices = [];
-};
-ViewPort.prototype =  {
-	constructor: ViewPort,
-
-	getIndices: function () {
-		var indxPos = [];
-		
-		for (var i in this.indices ) {
-			var p = this.indices[i].pos;
-			indxPos.push(p);
-		}
-		return indxPos;
-	},
-	setIndices: function (indices) {
-		this.indices = indices;
-	},	
-	getStart: function() {
-		return this.indices[0].id;
-	},
-	getEnd: function() {
-		return this.indices[this.indices.length-1].id;
-	},
-	size: function() {
-		return this.indices.length;
-	}
-};
 //****************************************************
 
 /* main phenogrid widget */
@@ -498,7 +547,7 @@ ViewPort.prototype =  {
 		ontologyTreeAmounts: 1,	// Allows you to decide how many HPO Trees to render.  Once a tree hits the high-level parent, it will count it as a complete tree.  Additional branchs or seperate trees count as seperate items
 							// [vaa12] DO NOT CHANGE UNTIL THE DISPLAY HPOTREE FUNCTIONS HAVE BEEN CHANGED. WILL WORK ON SEPERATE TREES, BUT BRANCHES MAY BE INACCURATE
 		selectedSort: "Frequency",
-		targetSpeciesName : "Overview",
+		targetSpeciesName : "Homo sapiens", //"Overview",  MKD TESTING WITH JUST ONE FOR NOW
 		refSpecies: "Homo sapiens",
 		genotypeExpandLimit: 5, // sets the limit for the number of genotype expanded on grid
 		phenoCompareLimit: 10, // sets the limit for the number of phenotypes used for genotype expansion
@@ -642,7 +691,6 @@ ViewPort.prototype =  {
 		}
 		this.state.data = {};
 		this.state.dataManager = new DataManager(this, this.state.simServerURL);
-		this.state.dataViewPort = new ViewPort();
 
 		// will this work?
 		this.configoptions = undefined;
@@ -740,8 +788,8 @@ ViewPort.prototype =  {
 
 
 		this.state.w = this.state.m[1] - this.state.m[3];
-		this.state.currXIdx = this.state.dataDisplayCount;
-		this.state.currYIdx = this.state.dataDisplayCount;
+		// this.state.currXIdx = this.state.dataDisplayCount;
+		// this.state.currYIdx = this.state.dataDisplayCount;
 
 		// set default display limits
 		this.state.targetDisplayLimit = this.state.dataDisplayCount;
@@ -751,15 +799,16 @@ ViewPort.prototype =  {
 		this.state.yModelRegion = this.state.yoffsetOver + this.state.yoffset;
 		
 // MKD: these can be possible eliminated
-		this._adjustPhenotypeCount();
-	    this._adjustModelCount();
+//		this._adjustPhenotypeCount();
+//	    this._adjustModelCount();
 
 	    // initialize axis groups
 	    this._createAxisRenderingGroups();
 	    
-	    this.state.currXIdx = this.state.xAxisRender.getDisplayCount();
-    	this.state.currYIdx = this.state.yAxisRender.getDisplayCount();
-		this._createColorScale();
+	    // this.state.currXIdx = this.state.xAxisRender.getDisplayCount();
+    	// this.state.currYIdx = this.state.yAxisRender.getDisplayCount();
+//MKD: move to rendering code??    	
+		this._createColorScale();  
 	},
 
 
@@ -807,9 +856,9 @@ ViewPort.prototype =  {
 
 	_reDraw: function() {
 	    //if (this.state.phenoLength !== 0 && this.state.filteredCellData.length !== 0){
-	    if (this.state.dataManager.source.length !== 0 && this.state.dataManager.cellData.length !== 0) { //this.state.filteredCellData.length !== 0){
-
-			var displayRangeCount = this.state.yAxisRender.getFilteredRangeSize();
+	    //if (this.state.dataManager.source.length !== 0 && this.state.dataManager.cellData.length !== 0) { //this.state.filteredCellData.length !== 0){
+		if (this.state.dataManager.isInitialized()) {
+			var displayRangeCount = this.state.yAxisRender.getGroupRenderSize();
 
 			this._setComparisonType();
 			this._initCanvas();
@@ -820,19 +869,20 @@ ViewPort.prototype =  {
 				.attr("height", displayRangeCount * this.state.widthOfSingleCell);
 			var rectHeight = this._createRectangularContainers();
 
-			this._addPhenogridControls();
+
+//MKD:temp			this._addPhenogridControls();
 
 			this._createXRegion();
 			this._createYRegion();
-			this._updateAxes();
+//MKD:temp			this._updateAxes();
 
-			this._addGradients();
+//MKD:temp			this._addGradients();
 			
 			this._createGridlines();
 			this._createCellRects();
 			this._highlightSpecies();	
 			
-			this._createOverviewSection();
+//MKD:temp			this._createOverviewSection();
 
 			var height = rectHeight + 40;
 
@@ -927,8 +977,8 @@ ViewPort.prototype =  {
 		var mHeight = self.state.heightOfSingleCell;
 		// create a blank grid to match the size of the phenogrid grid
 		var data = [];
-   	        var rowCt = self.state.yAxisRender.getDisplayCount();
-   	        var colCt = self.state.xAxisRender.getDisplayCount();
+   	        var rowCt = self.state.yAxisRender.getGroupRenderSize();
+   	        var colCt = self.state.xAxisRender.getGroupRenderSize();
 	     
 
 		for (var k = 0; k < rowCt; k++){
@@ -968,8 +1018,8 @@ ViewPort.prototype =  {
 	// For the selection area, see if you can convert the selection to the idx of the x and y then redraw the bigger grid 
 	_createOverviewSection: function() {
 		var self = this;
-	    var yCount = self.state.yAxisRender.getDisplayCount();
-	    var xCount = self.state.xAxisRender.getDisplayCount();
+	    var yCount = self.state.yAxisRender.getGroupRenderSize();
+	    var xCount = self.state.xAxisRender.getGroupRenderSize();
 		var startYIdx = this.state.currYIdx - yCount;
 		var startXIdx = this.state.currXIdx - xCount;
 
@@ -1324,7 +1374,8 @@ ViewPort.prototype =  {
 	// Previously processSelected
 	_processDisplay: function(){
 //		this._sortSource();  // MKD: refactored to AxisGroup
-		this._filterDisplay();
+//		this._filterDisplay();
+		this._buildRenderedMatrix();
 		this.state.unmatchedSources = this._getUnmatchedSources();
 		this.element.empty();
 		this._reDraw();
@@ -1350,6 +1401,23 @@ ViewPort.prototype =  {
 		}
 	},
 
+	_buildRenderedMatrix: function() {
+		var newFilteredCell = [];
+
+		if ( this.state.targetSpeciesName != "Overview") {
+			var currentCellData = this.state.dataManager.cellData[this.state.targetSpeciesName];
+
+			for (var i in currentCellData){
+				if (this.state.xAxisRender.isRendered(currentCellData[i].b_id) && 
+							this.state.yAxisRender.isRendered(currentCellData[i][0].id)){
+					newFilteredCell.push(currentCellData);
+				}
+			}
+			this.state.filteredCellData = newFilteredCell;
+		}
+
+	},
+
 	// Previously filterSelected
 // MKD: REFACTOR THIS TO USE AXISGROUP
 	_filterDisplay: function(){
@@ -1357,9 +1425,9 @@ ViewPort.prototype =  {
 		var axis_idx = 0;
 		var sortedYArray = [];
 
-	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.getDisplayCount();
+	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.getGroupRenderSize();
 		var	displayYLimiter = this.state.currYIdx;
-	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.getDisplayCount();
+	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.getGroupRenderSize();
 		var	displayXLimiter = this.state.currXIdx;
 
 	    this.state.filteredYAxis = self._filterListHash(this.state.yAxisRender.getItems(),
@@ -1742,7 +1810,7 @@ console.log("load data...");
 	},
 
 	// Filters down the axis hashtables based on what the limits are
-// MKD: refactor to AxisGroup???	
+// MKD: refactor to AxisGroup
 	_filterListHash: function (hash,start,end) {
 		var filteredHash = new Hashtable();
 		var oldHash = hash.entries();
@@ -2013,6 +2081,7 @@ console.log("load data...");
 
 	_addLogoImage:	 function() { 
 		var start = 0;
+// MKD: can this dependency be removed?
 		if(this.state.filteredCellData.length < 30){
 			// Magic Nums
 			start = 680;
@@ -2064,6 +2133,7 @@ console.log("load data...");
 	},
 
 	// Merging of both Highlight model and phenotype functions
+// MKD: this needs some refactoring	
 	_highlightMatching: function(curr_data){
 		var self = this;
 		var alabels, label, ID;
@@ -2169,7 +2239,7 @@ console.log("load data...");
 		var self = this;
 		var info = self._getAxisData(data);   // MKD: is this needed???
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getDisplayCount();
+	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
 		var concept = self._getConceptId(data);
 		//console.log("selecting x item.."+concept);
 		var appearanceOverrides;
@@ -2488,7 +2558,7 @@ console.log("load data...");
 		}
 		var wdt = this.state.axis_pos_list[1] + ((this.state.axis_pos_list[2] - this.state.axis_pos_list[1])/2);
 	    //var displayCount = this._getYLimit();
-	    var displayCount = this.state.yAxisRender.getDisplayCount();
+	    var displayCount = this.state.yAxisRender.getGroupRenderSize();
 		var hgt = displayCount * 10 + this.state.yoffset;
 		var yv, wv;
 
@@ -2721,8 +2791,8 @@ console.log("load data...");
 		var hwidthAndGap = self.state.widthOfSingleCell;
 		var totCt = 0;
 		var parCt = 0;
-	    var displayCount = self.state.yAxisRender.getDisplayCount();
-	    var displayCountX = self.state.xAxisRender.getDisplayCount();
+	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
+	    var displayCountX = self.state.xAxisRender.getGroupRenderSize();
 
 		// Have temporarly until fix for below during Axis Flip
 		if (self.state.targetSpeciesName == "Overview"){
@@ -2799,7 +2869,7 @@ console.log("load data...");
 	_highlightIntersection: function(curr_data, obj){
 		var self = this;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getDisplayCount();
+	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
 		// Highlight Row
 		var highlight_rect = self.state.svg.append("svg:rect")
 			.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
@@ -2940,7 +3010,7 @@ console.log("load data...");
 		var modelLineGap = 30;
 		var lineY = this.state.yoffset + modelLineGap;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getDisplayCount();
+	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
 		//this.state.svg.selectAll("path.domain").remove();
 		//this.state.svg.selectAll("text.scores").remove();
 		//this.state.svg.selectAll("#specieslist").remove();
@@ -2966,9 +3036,11 @@ console.log("load data...");
 		var xWidth = self.state.widthOfSingleCell;
 
 		if (!this.state.invertAxis) {
-			list = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
+			//list = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
+			list = self.state.xAxisRender.getRenderedItems();
 		} else {
-			list = self._getSortedIDListStrict(this.state.filteredYAxis.entries());
+			//list = self._getSortedIDListStrict(this.state.filteredYAxis.entries());
+			list = self.state.yAxisRender.getRenderedItems();
 		}
 
 		this.state.svg.selectAll("text.scores")
@@ -3083,7 +3155,7 @@ console.log("load data...");
 		var self = this;
 		this._buildAxisPositionList();
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getDisplayCount();
+	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
 
 		var gridHeight = displayCount * self.state.heightOfSingleCell + 10;
 		if (gridHeight < self.state.minHeight) {
@@ -3120,7 +3192,9 @@ console.log("load data...");
 		// Add two extra columns as separators
 		this.state.axis_pos_list = [];
 		// calculate width of model section
-		this.state.modelWidth = this.state.filteredXAxis.size() * this.state.widthOfSingleCell;
+		//this.state.modelWidth = this.state.filteredXAxis.size() * this.state.widthOfSingleCell;
+		this.state.modelWidth = this.state.xAxisRender.getGroupRenderSize() * this.state.widthOfSingleCell;
+
 		// add an axis for each ordinal scale found in the data
 		for (var i = 0; i < 3; i++) {
 			// move the last accent over a bit for the scrollbar
@@ -3145,7 +3219,8 @@ console.log("load data...");
 		var self = this;
 		var mods = [];
 
-		mods = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
+		//	mods = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
+		mods = this.state.xAxisRender.getRenderedItems();
 
 		this.state.xScale = d3.scale.ordinal()
 			.domain(mods.map(function (d) {return d; }))
@@ -3447,7 +3522,8 @@ console.log("load data...");
 		var pad = 14;
 		var list = [];
 
-		list = self._getSortedIDListStrict(self.state.filteredYAxis.entries());
+		//list = self._getSortedIDListStrict(self.state.filteredYAxis.entries());
+		list = self.state.yAxisRender.getRenderedItems();
 
 		var rect_text = this.state.svg
 			.selectAll(".a_text")
@@ -3507,8 +3583,7 @@ console.log("load data...");
 	_getUnmatchedSources: function(){
 		//var fullset = this.state.origPhenotypeData;
 		var fullset = this.state.dataManager.getOriginalSource();
-		//var partialset = this.state.phenotypeListHash.keys();   //MKD: GET FROM DM
-		var partialset = this.state.dataManager.source.keys();
+		var partialset = this.state.dataManager.keys("source");
 		var full = [];
 		var partial = [];
 		var unmatchedset = [];
