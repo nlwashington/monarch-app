@@ -70,7 +70,7 @@ function cellDataPointPrint(point) {
 }
 
 
-/**
+/*
 * an object routine that will wrap data required for axis rendering
 *
 * @constructor
@@ -183,7 +183,7 @@ AxisGroup.prototype = {
 	* @param {string} key - key to search
 	* @return {integer} position - -1 not found
 	*/	
-	getPosition: function (key) {
+	getOrdinalPosition: function (key) {
 		var i = 0, index = -1;
 		while (i < this.items.length) {
 			rec = this.items[i];			
@@ -505,10 +505,12 @@ DataManager.prototype = {
 						}
 
 						// building cellDataHash;  maybe name 'id' to something better (i.e., target_id)
-						dataVals = {"id": targetID, "value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": currID_lcs, 
-						"subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, "species": item.taxon.label,
-						"b_id": currID_b, "b_IC": parseFloat(curr_row.b.IC)};						
-						//this.cellData.put(cellPoint, hashDataVals);
+						dataVals = {"source_id": sourceID_a, "target_id": targetID, "value": lcs, 
+									"subsumer_label": curr_row.lcs.label, "subsumer_id": currID_lcs, 
+									"subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, 
+									"species": item.taxon.label,
+									"b_id": currID_b, "b_IC": parseFloat(curr_row.b.IC)};						
+
 						this.cellData[species].push(dataVals);
 					}
 				}  //if
@@ -609,11 +611,13 @@ DataManager.prototype = {
 		// COMPARE CALL HACK - REFACTOR OUT
 	    providedData: {},   
 	    axisFlipConfig: {
-		colorSelector: { true: "b_id", false: "id"}   //{ true: "yID", false: "xID"}
+		colorSelector: { true: "source_id", false: "target_id"}   //{ true: "yID", false: "xID"}
 	    }
 	},
 
-	// reset state values that must be cleared before reloading data
+	/*
+	 reset state values that must be cleared before reloading data
+	*/
 	_reset: function(type) {
 
 		// MKD: datamanager should be reset
@@ -914,7 +918,7 @@ DataManager.prototype = {
 
 			this._setComparisonType();
 			this._initCanvas();
-//MKD:temp			this._addLogoImage();
+			this._addLogoImage();
 
 			this.state.svg
 				.attr("width", "100%")
@@ -928,13 +932,13 @@ DataManager.prototype = {
 			this._createYRegion();
 			this._updateAxes();
 
-//MKD:temp			this._addGradients();
+			this._addGradients();
 			
 			this._createGridlines();
 			this._createCellRects();
 			this._highlightSpecies();	
 			
-//MKD:temp			this._createOverviewSection();
+			this._createOverviewSection();
 
 			var height = rectHeight + 40;
 
@@ -1118,8 +1122,8 @@ DataManager.prototype = {
 			.append("rect")
 			.attr("transform",cellRectTransform)
 			.attr("class", "mini_cell")
-			.attr("y", function(d, i) { return self.state.smallYScale(d.yID) + linePad / 2;})
-			.attr("x", function(d) { return self.state.smallXScale(d.xID) + linePad / 2;})
+			.attr("y", function(d, i) { return self.state.smallYScale(d.source_id) + linePad / 2;})  // yID
+			.attr("x", function(d) { return self.state.smallXScale(d.target_id) + linePad / 2;})  //xID
 			.attr("width", linePad)
 			.attr("height", linePad)
 			.attr("fill", function(d) {
@@ -1130,9 +1134,9 @@ DataManager.prototype = {
 								   d.value[self.state.selectedCalculation]);
 			});
 
-     	        var lastYId = self._returnID(this.state.yAxisRender.getItems(),yCount - 1);
+     	var lastYId = self._returnID(this.state.yAxisRender.getItems(),yCount - 1);
 	    var lastXId = self._returnID(this.state.xAxisRender.getItems(),xCount - 1);
-   	        var startYId = self._returnID(this.state.yAxisRender.getItems(),startYIdx);
+   	    var startYId = self._returnID(this.state.yAxisRender.getItems(),startYIdx);
 	    var startXId = self._returnID(this.state.xAxisRender.getItems(),startXIdx);
 
 		var selectRectX = self.state.smallXScale(startXId);
@@ -1461,12 +1465,12 @@ DataManager.prototype = {
 
 			for (var i in currentCellData){
 				// get the position from the rendered source and targets
-				var xPos = this.state.xAxisRender.indexOf(currentCellData[i].id);
-				var yPos = this.state.yAxisRender.indexOf(currentCellData[i].b_id);
+				var xPos = this.state.xAxisRender.indexOf(currentCellData[i].target_id);
+				var yPos = this.state.yAxisRender.indexOf(currentCellData[i].source_id);
 			 	if ( xPos > -1 && yPos > -1) {
+					//var ids = {xID: currentCellData[i].target_id, yID: currentCellData[i].source_id};  // keep this for compatibility 
 			 		var coords = {xpos: xPos, ypos: yPos};
-			 		var rec = $.extend({}, currentCellData[i], coords);
-			 		//var rec = {xpos: xPos, ypos: yPos, d: currentCellData[i]};
+			 		var rec = $.extend({}, currentCellData[i], coords); //, ids);
 			 		newFilteredCell.push(rec);
 			 	}			 		
 			 }
@@ -2189,10 +2193,11 @@ console.log("load data...");
 	// Will return all partial matches in the cellDataHash structure.  Good for finding rows/columns of data
 	_getMatchingModels: function (key) {
 		//var cellKeys = this.state.cellDataHash.keys();
-		var cellKeys = this.state.dataManager.cellData.keys();
+		var cellKeys = this.state.dataManager.cellData.entries();
 		var matchingKeys = [];
 		for (var i in cellKeys){
-			if (key == cellKeys[i].yID || key == cellKeys[i].xID){
+//			if (key == cellKeys[i].yID || key == cellKeys[i].xID){
+			if (key == cellKeys[i].source_id || key == cellKeys[i].target_id){
 				matchingKeys.push(cellKeys[i]);
 			}
 		}
@@ -2226,9 +2231,9 @@ console.log("load data...");
 
 		for (var i in models){
 			if (highlightX){
-				ID = models[i].yID;
+				ID = models[i].source_id;   //yID;
 			} else {
-				ID = models[i].xID;
+				ID = models[i].target_id;   //xID;
 			}
 
 			label = self._getAxisData(ID).label;
@@ -2649,8 +2654,8 @@ console.log("load data...");
 	_showCellData: function(d, obj) {
 		var retData, prefix, modelLabel, phenoLabel;
 
-		var yInfo = this._getAxisData(d.id); //this._getAxisData(d.yID); 
-		var xInfo = this._getAxisData(d.xID);
+		var yInfo = this._getAxisData(d.source_id); //this._getAxisData(d.yID); 
+		var xInfo = this._getAxisData(d.target_id);
 		var fullInfo = $.extend({},xInfo,yInfo);
 		var species = fullInfo.species;
 		var taxon = fullInfo.taxon;
@@ -2664,10 +2669,10 @@ console.log("load data...");
 		// } else {
 		// 	phenoLabel = null;
 		// }
-		if (this.state.dataManager.source.containsKey(d.xID)){
-			phenoLabel = this.state.dataManager.source.get(d.xID).label;
-		} else if (this.state.dataManager.source.containsKey(d.yID)){
-			phenoLabel = this.state.dataManager.source.get(d.yID).label;
+		if (this.state.dataManager.contains("source", d.target_id)){
+			phenoLabel = this.state.dataManager.getElement("source", d.target_id).label;
+		} else if (this.state.dataManager.contains("source", d.source_id)){
+			phenoLabel = this.state.dataManager.getElement("source", d.source_id).label;
 		} else {
 			phenoLabel = null;
 		}
@@ -2679,10 +2684,10 @@ console.log("load data...");
 		// } else {
 		// 	modelLabel = null;
 		// }
-		if (this.state.dataManager.target.containsKey(d.xID)) {
-			modelLabel = this.state.dataManager.target.get(d.xID).label;
-		} else if (this.state.dataManager.target.containsKey(d.yID)) {
-			modelLabel = this.state.dataManager.target.get(d.yID).label;
+		if (this.state.dataManager.contains("target", d.target_id)) {
+			modelLabel = this.state.dataManager.getElement("target", d.target_id).label;
+		} else if (this.state.dataManager.contains("target", d.source_id)) {
+			modelLabel = this.state.dataManager.getElement("target", d.source_id).label;
 		} else {
 			modelLabel = null;
 		}
@@ -2774,19 +2779,19 @@ console.log("load data...");
 		var self = this;
 		var data = this.state.filteredCellData;
 
-
-	        var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
-		var rectTranslation = "translate(" + ((this.state.textWidth + this.state.xOffsetOver + 30) + 4) + "," + (self.state.yoffsetOver + 15)+ ")";
+	  	var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
+		//var rectTranslation = "translate(" + ((this.state.textWidth + this.state.xOffsetOver + 30) + 4) + "," + (self.state.yoffsetOver + 15)+ ")";
 		var cell_rects = this.state.svg.selectAll(".cells")
 			.data( data, function(d) {
-				return d.id + d.b_id;    //MKD: d.xID + d.yID;
+				return d.target_id + d.source_id;    //MKD: d.xID + d.yID;
 			});
 		cell_rects.enter()
 			.append("rect")
-			.attr("transform",rectTranslation)
+			//.attr("transform",rectTranslation)
+			.attr("transform","translate(254, " + (this.state.yModelRegion + 15) + ")")
 			.attr("class", function(d) { 
-				var dConcept = (d.id + d.b_id);   //(d.xID + d.yID);
-				var cellConcept = self._getConceptId(d.id);  //d.xID);
+				var dConcept = (d.target_id + d.source_id);   //(d.xID + d.yID);
+				var cellConcept = self._getConceptId(d.target_id);  //d.xID);
 				// append the model id to all related items
 				if(d.value[self.state.selectedCalculation] > 0) {
 					var bla = self.state.svg.selectAll(".data_text." + dConcept);
@@ -2794,10 +2799,8 @@ console.log("load data...");
 				}
             	return "cells " + " " + cellConcept + " " + dConcept;
 			})
-			.attr("y", function(d, i) {
-				return d.ypos + self.state.yoffsetOver;  //self._getAxisData(d.yID).ypos + self.state.yoffsetOver;
-			})
-			.attr("x", function(d) { return self.state.xScale(d.id);})		//xID);})
+			.attr("y", function(d, i) { return self.state.yScale(d.source_id);})  //self._getAxisData(d.yID).ypos + self.state.yoffsetOver;			
+			.attr("x", function(d) { return self.state.xScale(d.target_id);})		//xID);})
 			.attr("width", 10)
 			.attr("height", 10)
 			.attr("rx", "3")
@@ -2833,7 +2836,7 @@ console.log("load data...");
 			var colorID = d[colorSelector];
 			return self._getColorForCellValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
 		});
-
+/*
 		cell_rects.transition()
 			.delay(20)
 			.style('opacity', '1.0')
@@ -2841,11 +2844,12 @@ console.log("load data...");
 				return d.ypos - 10;     //self._getAxisData(d.yID).ypos - 10; // rowid
 			})
 			.attr("x", function(d) { 
-				return self.state.xScale(d.id);  //xID);
+				return self.state.xScale(d.target_id);  //xID);
 			});
 		cell_rects.exit().transition()
 			.style('opacity', '0.0')
-			.remove();
+		.remove();
+*/		
 	},
 
 	_highlightSpecies: function () {
@@ -2940,13 +2944,13 @@ console.log("load data...");
 		var highlight_rect = self.state.svg.append("svg:rect")
 			.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
 			.attr("x", 12)
-			.attr("y", function(d) {return self._getAxisData(curr_data.yID).ypos; }) //rowid
+			.attr("y", function(d) {return self._getAxisData(curr_data.source_id).ypos; }) //rowid yID
 			.attr("class", "row_accent")
 			.attr("width", this.state.modelWidth - 4)
 			.attr("height", 12);
 
-		this.state.selectedRow = curr_data.yID;
-		this.state.selectedColumn = curr_data.xID;
+		this.state.selectedRow = curr_data.source_id;  //yID;
+		this.state.selectedColumn = curr_data.target_id;    //xID;
 		this._resetLinks();
 
 		/*
@@ -2955,19 +2959,19 @@ console.log("load data...");
 		 * For the overview, there will be a 0th position for each species so we need to get the right model_id
 		 */
 
-		var phen_label = this.state.svg.selectAll("text.a_text." + this._getConceptId(curr_data.yID));
+		var phen_label = this.state.svg.selectAll("text.a_text." + this._getConceptId(curr_data.source_id));  //yID
 		phen_label.style("font-weight", "bold");
 		phen_label.style("fill", "blue");
 
 		// Highlight Column
-		var model_label = self.state.svg.selectAll("text#" + this._getConceptId(curr_data.xID));
+		var model_label = self.state.svg.selectAll("text#" + this._getConceptId(curr_data.target_id));  //xID
 		model_label.style("font-weight", "bold");
 		model_label.style("fill", "blue");
 
 		// create the related model rectangles
 		var highlight_rect2 = self.state.svg.append("svg:rect")
 			.attr("transform","translate(" + (self.state.textWidth + self.state.xOffsetOver + 34) + "," +self.state.yoffsetOver+ ")")
-			.attr("x", function(d) { return (self.state.xScale(curr_data.xID) - 1);})
+			.attr("x", function(d) { return (self.state.xScale(curr_data.target_id) - 1);})  // xID
 			.attr("y", self.state.yoffset + 2 )
 			.attr("class", "model_accent")
 			.attr("width", 12)
@@ -2988,7 +2992,7 @@ console.log("load data...");
 		this.state.h = (data.length * 2.5);
 
 		self.state.yScale = d3.scale.ordinal()
-			.domain(data.map(function (d) { return d.b_id; }))  //d.yID; }))
+			.domain(data.map(function (d) { return d.source_id; }))  //d.yID; }))
 			.range([0,data.length])
 			.rangePoints([self.state.yModelRegion,self.state.yModelRegion + this.state.h]);
 
@@ -3596,9 +3600,9 @@ console.log("load data...");
 			.data(list, function(d) { return d.label; });
 		rect_text.enter()
 			.append("text")
-			.attr("transform","translate(0, 150)")
+			.attr("transform","translate(0, " + (this.state.yModelRegion+5) + ")")
 			.attr("class", function(d) {
-				return "a_text data_text " + d;  // MKD: this should probably use standard css tag instead of appending id
+				return "a_text data_text " + d.id;  // MKD: this should probably use standard css tag instead of appending id
 			})
 		// store the id for this item. This will be used on click events
 			.attr("ontology_id", function(d) {
@@ -3609,7 +3613,7 @@ console.log("load data...");
 			})
 			.attr("x", 208)
 			.attr("y", function(d) {				
-				  y += self.state.yAxisRender.getPosition(d.id) + 10;
+				  y += 13;  //self.state.yAxisRender.getOrdinalPosition(d.id)
 				return y;  // 		self._getAxisData(d).ypos + 10;
 			})
 			.on("mouseover", function(d) {
@@ -3619,7 +3623,7 @@ console.log("load data...");
 				self._deselectData(d, d3.mouse(this));
 			})
 			.attr("width", self.state.textWidth)
-			.attr("height", 50)
+			.attr("height", 50) // 11.5
 			.attr("data-tooltip", "sticky1")
 			.style("fill", function(d){
 				return self._getExpandStyling(d);
@@ -3638,10 +3642,10 @@ console.log("load data...");
 
 		rect_text.transition()
 			.style('opacity', '1.0')
-			.delay(5)
-			.attr("y", function(d) {
-				return self.state.yAxisRender.getPosition(d.id) + self.state.yoffsetOver + pad;    //self._getAxisData(d).ypos + self.state.yoffsetOver + pad;
-			});
+			.delay(5);
+//			.attr("y", function(d) {
+//				return self.state.yAxisRender.getOrdinalPosition(d.id) + self.state.yoffsetOver + pad;    //self._getAxisData(d).ypos + self.state.yoffsetOver + pad;
+//			});
 		rect_text.exit()
 			.transition()
 			.delay(20)
