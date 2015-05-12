@@ -182,7 +182,7 @@ AxisGroup.prototype = {
 	* @param {string} dataset - which data set
 	* @param {string} key - key to search
 	* @return {integer} position - -1 not found
-	*/	
+	*
 	getOrdinalPosition: function (key) {
 		var i = 0, index = -1;
 		while (i < this.items.length) {
@@ -194,7 +194,7 @@ AxisGroup.prototype = {
 			i++;
 		}		
 		return -1;
-	},
+	}, */
 	contains: function(key) {
 		if (this.get(key) != null)
 			return true;
@@ -279,6 +279,21 @@ DataManager.prototype = {
 	*/	
 	entries: function(dataset) {
 		return this[dataset];
+	},
+	cellPointMatch: function (key1, key2, species) {
+		var match;
+		for (var i=0; i < this.cellData[species].length; i++) {
+			var cellIdSource = this.cellData[species][i].source_id;
+			var cellIdTarget = this.cellData[species][i].target_id;
+			if ( cellIdSource== key1 && cellIdTarget == key2) {				
+				match = this.cellData[species][i];
+				break;
+			} else if (cellIdSource == key2 && cellIdTarget == key1) {
+				match = this.cellData[species][i];
+				break;
+			}
+		}
+		return match;
 	},
 	/**
 	* returns a list of key (id) values from a given dataset
@@ -572,7 +587,7 @@ DataManager.prototype = {
 		defaultApiEntity: "gene",
 		tooltips: {},
 		widthOfSingleCell: 18,
-		heightOfSingleCell: 13,
+		heightOfSingleCell: 13,    //used
 		yoffsetOver: 30,
 		overviewGridTitleXOffset: 340,
 		overviewGridTitleFaqOffset: 230,
@@ -932,13 +947,13 @@ DataManager.prototype = {
 			this._createYRegion();
 			this._updateAxes();
 
-			this._addGradients();
+//			this._addGradients();
 			
 			this._createGridlines();
 			this._createCellRects();
 			this._highlightSpecies();	
 			
-			this._createOverviewSection();
+//			this._createOverviewSection();
 
 			var height = rectHeight + 40;
 
@@ -1033,8 +1048,8 @@ DataManager.prototype = {
 		var mHeight = self.state.heightOfSingleCell;
 		// create a blank grid to match the size of the phenogrid grid
 		var data = [];
-   	        var rowCt = self.state.yAxisRender.getGroupRenderSize();
-   	        var colCt = self.state.xAxisRender.getGroupRenderSize();
+   	    var rowCt = self.state.yAxisRender.getGroupRenderSize();
+   	    var colCt = self.state.xAxisRender.getGroupRenderSize();
 	     
 
 		for (var k = 0; k < rowCt; k++){
@@ -1340,13 +1355,14 @@ DataManager.prototype = {
 			.text("navigate the model view on the left");
 	},
 
+// MKD: needs refactored
 	_createSmallScales: function(overviewRegionSize) {
 		var self = this;
 		var sortDataList = [];
 		var mods = [];
-   	        sortDataList = self._getSortedIDList(self.state.yAxisRender.getItems());
+   	        sortDataList = self._getSortedIDList(self.state.yAxisRender.getRenderedItemIDs());
 
-	    mods = self._getSortedIDList(self.state.xAxisRender.getItems());
+	    mods = self._getSortedIDList(self.state.xAxisRender.getRenderedItemIDs());
 
 		this.state.smallYScale = d3.scale.ordinal()
 			.domain(sortDataList.map(function (d) {return d; }))
@@ -1457,7 +1473,33 @@ DataManager.prototype = {
 		}
 	},
 
-	_buildRenderedMatrix: function() {
+_buildRenderedMatrix: function() {
+		var newFilteredCell = [];
+
+		if ( this.state.targetSpeciesName != "Overview") {
+
+			var sourceList = this.state.yAxisRender.getRenderedItemIDs();
+			var targetList = this.state.xAxisRender.getRenderedItemIDs();
+
+			for(var s=0; s < sourceList.length; s++) {
+				for(var t=0; t < targetList.length; t++) {
+					var cellMatch = this.state.dataManager.cellPointMatch(sourceList[s], targetList[t], this.state.targetSpeciesName);
+
+					if (typeof (cellMatch) !== 'undefined') {
+						var xPos = this.state.xAxisRender.indexOf(cellMatch.target_id);
+						var yPos = this.state.yAxisRender.indexOf(cellMatch.source_id);
+			 			if ( xPos > -1 && yPos > -1) {
+				 			var coords = {xpos: xPos, ypos: yPos};
+				 			var rec = $.extend({}, cellMatch, coords); //, ids);
+							newFilteredCell.push(rec);
+			 			}			 		
+			 		}
+				}
+			}
+			this.state.filteredCellData = newFilteredCell;
+		}
+	},
+/*	_buildRenderedMatrix: function() {
 		var newFilteredCell = [];
 
 		if ( this.state.targetSpeciesName != "Overview") {
@@ -1465,8 +1507,8 @@ DataManager.prototype = {
 
 			for (var i in currentCellData){
 				// get the position from the rendered source and targets
-				var xPos = this.state.xAxisRender.indexOf(currentCellData[i].target_id);
-				var yPos = this.state.yAxisRender.indexOf(currentCellData[i].source_id);
+				var xPos = this.state.xAxisRender.getOrdinalPosition(currentCellData[i].target_id);
+				var yPos = this.state.yAxisRender.getOrdinalPosition(currentCellData[i].source_id);
 			 	if ( xPos > -1 && yPos > -1) {
 					//var ids = {xID: currentCellData[i].target_id, yID: currentCellData[i].source_id};  // keep this for compatibility 
 			 		var coords = {xpos: xPos, ypos: yPos};
@@ -1479,7 +1521,7 @@ DataManager.prototype = {
 		}
 
 	},
-
+*/
 	// Previously filterSelected
 // MKD: REFACTOR THIS TO USE AXISGROUP
 	_filterDisplay: function(){
@@ -1832,10 +1874,9 @@ console.log("load data...");
 
 	// Returns axis data from a ID of models or phenotypes
 	_getAxisData: function(key) {
-	        if (this.state.yAxisRender.contains(key)){
+	    if (this.state.yAxisRender.contains(key)){
 		    return this.state.yAxisRender.get(key);
-		}
-  	        else if (this.state.xAxisRender.contains(key)){
+		} else if (this.state.xAxisRender.contains(key)){
 		    return this.state.xAxisRender.get(key);
 		}
 		else { return null; }
@@ -2778,17 +2819,14 @@ console.log("load data...");
 	_createCellRects: function() {
 		var self = this;
 		var data = this.state.filteredCellData;
-
 	  	var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
-		//var rectTranslation = "translate(" + ((this.state.textWidth + this.state.xOffsetOver + 30) + 4) + "," + (self.state.yoffsetOver + 15)+ ")";
 		var cell_rects = this.state.svg.selectAll(".cells")
 			.data( data, function(d) {
 				return d.target_id + d.source_id;    //MKD: d.xID + d.yID;
 			});
 		cell_rects.enter()
 			.append("rect")
-			//.attr("transform",rectTranslation)
-			.attr("transform","translate(254, " + (this.state.yModelRegion + 15) + ")")
+			.attr("transform","translate(253, " + (this.state.yModelRegion + 5) + ")")
 			.attr("class", function(d) { 
 				var dConcept = (d.target_id + d.source_id);   //(d.xID + d.yID);
 				var cellConcept = self._getConceptId(d.target_id);  //d.xID);
@@ -2799,7 +2837,7 @@ console.log("load data...");
 				}
             	return "cells " + " " + cellConcept + " " + dConcept;
 			})
-			.attr("y", function(d, i) { return self.state.yScale(d.source_id);})  //self._getAxisData(d.yID).ypos + self.state.yoffsetOver;			
+			.attr("y", function(d, i) { return d.ypos * self.state.heightOfSingleCell;})  //self._getAxisData(d.yID).ypos + self.state.yoffsetOver;			
 			.attr("x", function(d) { return self.state.xScale(d.target_id);})		//xID);})
 			.attr("width", 10)
 			.attr("height", 10)
@@ -2942,12 +2980,13 @@ console.log("load data...");
 	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
 		// Highlight Row
 		var highlight_rect = self.state.svg.append("svg:rect")
-			.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
-			.attr("x", 12)
-			.attr("y", function(d) {return self._getAxisData(curr_data.source_id).ypos; }) //rowid yID
+			//.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
+			.attr("transform","translate(252, " + (this.state.yModelRegion + 5) + ")")
+			.attr("x", 0) //12
+			.attr("y", function(d) {return self.state.yAxisRender.indexOf(curr_data.source_id) * self.state.heightOfSingleCell; }) //rowid yID
 			.attr("class", "row_accent")
 			.attr("width", this.state.modelWidth - 4)
-			.attr("height", 12);
+			.attr("height", self.state.heightOfSingleCell);
 
 		this.state.selectedRow = curr_data.source_id;  //yID;
 		this.state.selectedColumn = curr_data.target_id;    //xID;
@@ -2959,14 +2998,14 @@ console.log("load data...");
 		 * For the overview, there will be a 0th position for each species so we need to get the right model_id
 		 */
 
-		var phen_label = this.state.svg.selectAll("text.a_text." + this._getConceptId(curr_data.source_id));  //yID
-		phen_label.style("font-weight", "bold");
-		phen_label.style("fill", "blue");
+		var source_label = this.state.svg.selectAll("text.a_text." + this._getConceptId(curr_data.source_id));  //yID
+		source_label.style("font-weight", "bold");
+		source_label.style("fill", "blue");
 
 		// Highlight Column
-		var model_label = self.state.svg.selectAll("text#" + this._getConceptId(curr_data.target_id));  //xID
-		model_label.style("font-weight", "bold");
-		model_label.style("fill", "blue");
+		var target_label = self.state.svg.selectAll("text#" + this._getConceptId(curr_data.target_id));  //xID
+		target_label.style("font-weight", "bold");
+		target_label.style("fill", "blue");
 
 		// create the related model rectangles
 		var highlight_rect2 = self.state.svg.append("svg:rect")
@@ -2974,7 +3013,7 @@ console.log("load data...");
 			.attr("x", function(d) { return (self.state.xScale(curr_data.target_id) - 1);})  // xID
 			.attr("y", self.state.yoffset + 2 )
 			.attr("class", "model_accent")
-			.attr("width", 12)
+			.attr("width", self.state.heightOfSingleCell)
 			.attr("height", (displayCount * self.state.heightOfSingleCell));
 	},
 
@@ -3327,7 +3366,7 @@ console.log("load data...");
 	_addGradients: function() {
 		var self = this;
 		//var cellData = this.state.cellDataHash.values();
-		var cellData = this.state.dataManager.cellData.values();
+		var cellData = this.state.dataManager.cellData;
 		var temp_data = cellData.map(function(d) { return d.value[self.state.selectedCalculation];} );
 		var diff = d3.max(temp_data) - d3.min(temp_data);
 		var y1;
@@ -3602,7 +3641,7 @@ console.log("load data...");
 			.append("text")
 			.attr("transform","translate(0, " + (this.state.yModelRegion+5) + ")")
 			.attr("class", function(d) {
-				return "a_text data_text " + d.id;  // MKD: this should probably use standard css tag instead of appending id
+				return "a_text data_text " + d.id;  
 			})
 		// store the id for this item. This will be used on click events
 			.attr("ontology_id", function(d) {
