@@ -127,11 +127,9 @@ AxisGroup.prototype = {
 	*/	
 	getRenderedItemIDs: function() {
 		var renderedList = this.getRenderedItems();
-		var ids = [];
-		for (var i=0; i < renderedList.length; i++) {
-			var rec = renderedList[i];			
-			ids.push(rec.id);
-		}
+		var ids = renderedList.map(function(obj) {
+				return obj.id;
+			});
 		return ids;
 	},
 	/**
@@ -177,24 +175,6 @@ AxisGroup.prototype = {
 		}
 		return null;
 	},
-	/** 
-	* returns the position of a single element
-	* @param {string} dataset - which data set
-	* @param {string} key - key to search
-	* @return {integer} position - -1 not found
-	*
-	getOrdinalPosition: function (key) {
-		var i = 0, index = -1;
-		while (i < this.items.length) {
-			rec = this.items[i];			
-			if (rec.id == key) {
-				index = i;
-				return index;
-			}
-			i++;
-		}		
-		return -1;
-	}, */
 	contains: function(key) {
 		if (this.get(key) != null)
 			return true;
@@ -531,6 +511,15 @@ DataManager.prototype = {
 				}  //if
 			}
 		}
+	},
+	reinitialize: function(species) {
+
+		this.source = [];
+		this.target = [];
+		this.cellData = [];
+
+		// transform the data again using the originalOwlsim data, but for specified species
+		this.transform(this.owlsimsData[species], species);  
 	}
 };
 
@@ -807,13 +796,33 @@ DataManager.prototype = {
 //MKD: may be able to eliminate, restricts how many pheno are displayed
 		this.state.sourceDisplayLimit = this._calcYAxisDisplayLimit();
 
-		// save a copy of the original phenotype data;  MKD: datamanager will save this now
-		//this.state.origPhenotypeData = this.state.phenotypeData.slice();
+//MKD: NOT SURE THE POINT OF THIS YET
+		if (typeof this.state.owlSimFunction === 'undefined'){
+			this.state.owlSimFunction = 'search';
+		} else if (this.state.owlSimFunction === 'compare' || this.state.owlSimFunction == 'exomiser'){
+			this.state.targetSpeciesName = "Homo sapiens";
+		} 
+
+//MKD: refactor the hashtables out
+		if (!this.state.hpoCacheBuilt){
+			this.state.hpoCacheHash = new Hashtable();
+			this.state.hpoCacheLabels = new Hashtable();
+		}
+		this.state.expandedHash = new Hashtable();  // for cache of genotypes
 
 		// target species name might be provided as a name or as taxon. Make sure that we translate to name
 		this.state.targetSpeciesName = this._getTargetSpeciesNameByTaxon(this,this.state.targetSpeciesName);
 //		this.state.phenotypeData = this._parseQuerySourceList(this.state.phenotypeData);
 		var querySourceList = this._parseQuerySourceList(this.state.phenotypeData);
+
+		// setup a species array for later usage; MAY NEED TO REFACTOR THIS
+		var speciesList = [];
+		for (var i in this.state.targetSpeciesList) {	
+			var species = this.state.targetSpeciesList[i].name;
+			speciesList.push(species);
+		}		
+
+		this.state.speciesList = speciesList;
 
 		
 		var listofTargetSpecies = [];
@@ -825,19 +834,19 @@ DataManager.prototype = {
 		// dataManager fetch will initialize source and target data
 		this.state.dataManager.fetch(querySourceList, listofTargetSpecies);
 
-		//force 1 species for testing
+		//TEMP CODE TESTING: force 1 species for testing
 		this.state.targetSpeciesName = "Homo sapiens";
 
-		this._loadData();   // MKD: datamanager.fetch will replace this
+		//this._loadData();   // MKD: datamanager.fetch will replace this
 
-		this._setLoadedValues();   //MKD: refactor
+		this._initDefaults();   //MKD: refactor
 
 		this._processDisplay();
 
 	},
 
 	//Originally part of _init
-	_setLoadedValues: function() {
+	_initDefaults: function() {
 		// must init the stickytooltip here initially, but then don't reinit later until in the redraw
 		// this is weird behavior, but need to figure out why later
 		if (typeof(this.state.stickyInitialized) == 'undefined') {
@@ -858,9 +867,7 @@ DataManager.prototype = {
 		this._setDefaultSelectedSort(this.state.selectedSort);
 
 
-		this.state.w = this.state.m[1] - this.state.m[3];
-		// this.state.currXIdx = this.state.dataDisplayCount;
-		// this.state.currYIdx = this.state.dataDisplayCount;
+		this.state.w = this.state.m[1] - this.state.m[3];  // 'w' name needs refactored, it unclear what this is for here
 
 		// set default display limits
 		this.state.targetDisplayLimit = this.state.dataDisplayCount;
@@ -876,8 +883,6 @@ DataManager.prototype = {
 	    // initialize axis groups
 	    this._createAxisRenderingGroups();
 	    
-	    // this.state.currXIdx = this.state.xAxisRender.getDisplayCount();
-    	// this.state.currYIdx = this.state.yAxisRender.getDisplayCount();
 //MKD: move to rendering code??    	
 		this._createColorScale();  
 	},
@@ -947,7 +952,7 @@ DataManager.prototype = {
 			this._createYRegion();
 			this._updateAxes();
 
-//			this._addGradients();
+			this._addGradients();
 			
 			this._createGridlines();
 			this._createCellRects();
@@ -967,17 +972,9 @@ DataManager.prototype = {
 			stickytooltip.init("*[data-tooltip]", "mystickytooltip");
 
 		} else {
-			var msg;
-			// COMPARE CALL HACK - REFACTOR OUT
-			if (this.state.targetSpeciesName == "Overview" || this.state.owlSimFunction === 'compare' || this.state.owlSimFunction === 'exomiser'){
-				msg = "There are no results available.";
+			var msg = "There are no results available.";
 				this._createSvgContainer();
 				this._createEmptyVisualization(msg);
-			}else{
-				msg = "There are no " + this.state.targetSpeciesName + " results available.";
-				this._createSvgContainer();
-				this._createEmptyVisualization(msg);
-			}
 		}
 		// COMPARE CALL HACK - REFACTOR OUT
 		// no organism selector if we are doing the 'compare' function
@@ -1477,17 +1474,25 @@ _buildRenderedMatrix: function() {
 		var newFilteredCell = [];
 
 		if ( this.state.targetSpeciesName != "Overview") {
+			var sourceList,targetList; 
+			sourceList = this.state.yAxisRender.getRenderedItemIDs();
+			targetList = this.state.xAxisRender.getRenderedItemIDs();
 
-			var sourceList = this.state.yAxisRender.getRenderedItemIDs();
-			var targetList = this.state.xAxisRender.getRenderedItemIDs();
-
+			// loop through the rendered source/target to build matrix
 			for(var s=0; s < sourceList.length; s++) {
 				for(var t=0; t < targetList.length; t++) {
 					var cellMatch = this.state.dataManager.cellPointMatch(sourceList[s], targetList[t], this.state.targetSpeciesName);
 
 					if (typeof (cellMatch) !== 'undefined') {
-						var xPos = this.state.xAxisRender.indexOf(cellMatch.target_id);
-						var yPos = this.state.yAxisRender.indexOf(cellMatch.source_id);
+						var xPos, yPos;
+						if (this.state.invertAxis){
+							yPos = this.state.xAxisRender.indexOf(cellMatch.source_id);
+							xPos = this.state.yAxisRender.indexOf(cellMatch.target_id);
+							
+						} else {
+							xPos = this.state.xAxisRender.indexOf(cellMatch.target_id);
+							yPos = this.state.yAxisRender.indexOf(cellMatch.source_id);
+			 			}
 			 			if ( xPos > -1 && yPos > -1) {
 				 			var coords = {xpos: xPos, ypos: yPos};
 				 			var rec = $.extend({}, cellMatch, coords); //, ids);
@@ -1561,7 +1566,6 @@ _buildRenderedMatrix: function() {
 	// I may need to rename this method "getModelData". It should extract the models and reformat the data 
 	_loadData: function() {
 
-console.log("load data...");
 		/*
 		 * set the owlsimFunction
 		 * there are three possibilities
@@ -1581,9 +1585,6 @@ console.log("load data...");
 			this.state.hpoCacheHash = new Hashtable();
 			this.state.hpoCacheLabels = new Hashtable();
 		}
-
-		//MKD: dataManager
-		//this.state.dataManager.init();
 
 		this.state.expandedHash = new Hashtable();  // for cache of genotypes
 //		this.state.phenotypeListHash = new Hashtable();      //MKD: source
@@ -2175,8 +2176,6 @@ console.log("load data...");
 		$("#svg_area").remove();
 
 		if (type === "organism"){
-			//MKD: GET RID OF THIS LINE
-			//self.state.phenotypeData = self.state.origPhenotypeData.slice();
 			self._reset("organism");
 			self._init();
 		} else if (type === "calculation"){
@@ -2184,10 +2183,8 @@ console.log("load data...");
 		} else if (type === "sortphenotypes"){
 			self._reset("sortphenotypes");
 		} else if (type === "axisflip"){
-			// MKD GET RID OF THIS LINE
-			//self.state.phenotypeData = self.state.origPhenotypeData.slice();
 			self._reset("axisflip");
-			self._init();
+//			self._init();  // MKD: this reloads data, needs refactored
 		}
 	},
 
@@ -2395,11 +2392,12 @@ console.log("load data...");
 		if (stickytooltip.isdocked){ return; }
 
 		var self = this;
-		var info = self._getAxisData(curr_data);
+		//var info = self._getAxisData(curr_data);
+		var id = curr_data.id;
 		
 		//console.log("select y item.. "+txt);
 
-		var alabels = this.state.svg.selectAll("text.a_text." + curr_data)
+		var alabels = this.state.svg.selectAll("text.a_text." + id)
 			.style("font-weight", "bold")
 			.style("fill", "blue");
 
@@ -2415,13 +2413,11 @@ console.log("load data...");
 			.attr("height", 11 * appearanceOverrides.offset);
 
 		this._highlightMatching(curr_data);
-
-		//stickytooltip.show(evt);
 	},
 
 	_createHoverBox: function(data){
 		var appearanceOverrides = {offset: 1, style: "model_accent"}; // may use this structure later, offset is only used now
-		var info = this._getAxisData(data);
+		var info = data;  //this._getAxisData(data);
 		var type = info.type;
 		if (type === undefined){
 			type = this._getIDType(data);
@@ -2624,8 +2620,8 @@ console.log("load data...");
 				self._deselectData(data);
 			})
 			.attr("class", this._getConceptId(data) + " model_label")
-			.attr("data-tooltip", "sticky1")   
-			// this activates the stickytool tip
+			// this activates the stickytool tip			
+			.attr("data-tooltip", "sticky1")   			
 			.style("font-size", "12px")
 			//.style("font-weight", "bold")
 			.style("fill", this._getExpandStyling(data))
@@ -3531,7 +3527,10 @@ console.log("load data...");
 		// add the handler for the select control
 		$( "#organism" ).change(function(d) {
 			self.state.targetSpeciesName = self._getTargetSpeciesNameByIndex(self,d.target.selectedIndex);
-			self._resetSelections("organism");
+			//self._resetSelections("organism");
+			self.state.dataManager.reinitialize(self.state.targetSpeciesName);
+			self._initDefaults();
+			self._processDisplay();
 		});
 
 		$( "#calculation" ).change(function(d) {
@@ -3543,14 +3542,18 @@ console.log("load data...");
 		// add the handler for the select control
 		$( "#sortphenotypes" ).change(function(d) {
 			self.state.selectedSort = self.state.phenotypeSort[d.target.selectedIndex];
+			// sort source with default sorting type
+			self.state.yAxisRender.sort(self.state.selectedSort); 
 			self._resetSelections("sortphenotypes");
 			self._processDisplay();
 		});
 
 		$( "#axisflip" ).click(function(d) {
 		    self.state.invertAxis = !self.state.invertAxis;
-		   // self._setAxisRenderers();
-   		    self._resetSelections("axisflip");
+		    self._resetSelections("axisflip");
+		    self._setAxisRenderers();
+		    self._processDisplay();
+
 		});
 
 		self._configureFaqs();
