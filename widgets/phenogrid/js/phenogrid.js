@@ -226,8 +226,25 @@ var DataManager = function(parent, serverUrl) {
 	this.init();
 };
 
+/*
+ 	Class: DataManager
+  		handles all interaction with the data, from fetching from external 
+ 		servers, transformation and storage.
+ 
+ 	Parameters:
+ 	 	parent - reference to parent calling object
+ 		serverUrl - sim server url
+ */
 DataManager.prototype = {
 	constructor: DataManager,
+
+	/*
+		Function: init
+			initializes the dataManager
+
+		Returns:
+			none
+	*/		
 	init: function() {
 		this.source = []; // phenoList
 		this.target = []; // modelList
@@ -237,6 +254,14 @@ DataManager.prototype = {
 		this.origSourceList;
 		this.initialized = false;
 	},
+
+	/*
+		Function: isInitialized
+			check to see if datasets have been initialized 
+
+		Returns:
+			boolean
+	*/	
 	isInitialized: function() {
 		if (this.source.length > 0 && this.target.length > 0) {
 			this.initialized = true;
@@ -245,21 +270,41 @@ DataManager.prototype = {
 		}
 		return this.initialized;
 	},
-	/** 
-	* gets the original source listing used for query 
-	* @return {array}
+	/*
+		Function: getOriginalSource
+			gets the original source listing used for query 
+
+		Returns:
+			array of objects
 	*/
 	getOriginalSource: function() {
 		return this.qrySourceList;
 	},
-	/** 
-	* gets dataset
-	* @param {string} dataset - which data set array to return (i.e., source, target, cellData)
-	* @return {array} array of objects
+	/*
+		Function: entries
+			gets a list of entries from specified dataset
+
+		Parameters:
+			dataset - which data set array to return (i.e., source, target, cellData)
+
+		Returns:
+			array of objects
 	*/	
 	entries: function(dataset) {
 		return this[dataset];
 	},
+
+	/*
+		Function: cellPointMatch
+
+		Parameters:
+			key1 - first key to match
+			key2  - second key to match
+			species - species name
+
+		Returns:
+			match - matching object
+	*/
 	cellPointMatch: function (key1, key2, species) {
 		var match;
 		for (var i=0; i < this.cellData[species].length; i++) {
@@ -275,11 +320,15 @@ DataManager.prototype = {
 		}
 		return match;
 	},
-	/**
-	* returns a list of key (id) values from a given dataset
-	*
-	* @param {string} dataset - which data set array to return (i.e., source, target, cellData)
-	* @return {array} keys
+	/*
+		Function: keys
+			returns a list of key (id) values from a given dataset
+	
+		Parameters:
+			dataset - which data set array to return (i.e., source, target, cellData)
+
+		Returns:
+			array of ids
 	*/
 	keys: function (dataset) {
 		var keys = [];
@@ -290,12 +339,17 @@ DataManager.prototype = {
 		}
 		return keys;
 	},
-	// 
-	/** 
-	* gets a single element object from a data set 
-	* @param {string} dataset - which data set
-	* @param {string} key - key to search
-	* @return {object}
+
+	/*
+		Function: getElement
+			gets a single element object from a data set 
+	
+		Parameters:
+			dataset - which data set
+			key - key to search
+
+		Returns:
+			object
 	*/	
 	getElement: function (dataset, key) {
 		var i = 0, found = false, rec = null;
@@ -310,11 +364,17 @@ DataManager.prototype = {
 		}
 		return rec;
 	},
-	/** 
-	* returns the index of a single element object from a data set 
-	* @param {string} dataset - which data set
-	* @param {string} key - key to search
-	* @return {integer} index
+	/*
+		Function: getElementIndex
+
+		returns the index of a single element object from a data set 
+
+		Parameters:
+			dataset - which data set
+			key - key to search
+
+		Returns:
+			index - position of element in the array, -1 if not found
 	*/	
 	getElementIndex: function (dataset, key) {
 		var i = 0, found = false, index = -1;
@@ -330,10 +390,18 @@ DataManager.prototype = {
 		}
 		return index;
 	},
-	/** searchers for value element contained with a data set 
-	* @param {string} dataset - which data set to search
-	* @param {string} key - key to search
-	* @return {boolean}
+	/*
+		Function: contains
+
+			searches for value element contained with a data set 
+
+		Parameters:
+			dataset - which data set to search
+			key - key to search
+
+
+		Returns:
+			boolean
 	*/
 	contains: function(dataset, key) {
 		var i = 0;
@@ -350,11 +418,15 @@ DataManager.prototype = {
 		return found;
 	}, 	
 
-	/** 	
-	* fetch and load data from external source
-	* @param {string} qrySourceList - list of source items to query
-	* @param {object/string} species - list of species
-	* @param {number} limit - value to limit targets returned
+	/*
+		Function: fetch
+
+			fetch and load data from external source (i.e., owlsims)
+
+		Parameters:	
+			qrySourceList - list of source items to query
+			species - list of species
+			limit - value to limit targets returned
 	*/
 	fetch: function(qrySourceList, species, limit) {
 		var res, speciesName = [];
@@ -424,12 +496,16 @@ DataManager.prototype = {
 
 	},
 
-	/** 	
-	* transforms data from raw owlsims into simplified format
-	*
-	* @param {object} data - owlsims structured data
-	* @param {string} species - species name
-	*/	
+	/*
+		Function: transform
+
+			transforms data from raw owlsims into simplified format
+	
+	 	Parameters:
+
+	 		data - owlsims structured data
+	 		species - species name
+	*/
 	transform: function(data, species) {	
 
 		if (typeof (data.b) !== 'undefined') {
@@ -512,6 +588,15 @@ DataManager.prototype = {
 			}
 		}
 	},
+	/*
+		Function: reinitialize
+
+			reinitializes the source, target and cellData for a specied species
+
+		Parameters:
+			species - species name
+
+	*/
 	reinitialize: function(species) {
 
 		this.source = [];
