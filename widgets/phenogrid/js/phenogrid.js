@@ -114,16 +114,6 @@ AxisGroup.prototype = {
 		return this.items.slice(this.renderStartPos, this.renderEndPos);
 	},
 	/*
-		Function: getItems
-			gets all items within the axisgroup
-
-		Return:
-			array of items
-	*/
-	getItems: function() {
-    	return this.items;
-	},
-	/*
 		Function: getRenderedItem
 			gets an item within the rendered axisgroup with a specified index
 
@@ -224,6 +214,17 @@ AxisGroup.prototype = {
 	size: function() {
     	return this.items.length;
 	},
+	/*
+		Function: getItems
+			gets all items within the axisgroup
+
+		Return:
+			array of items
+	*/
+	getItems: function() {
+    	return this.items;
+	},
+
 	/*
 		Function: get
 			gets a single item element from the axis 
@@ -633,7 +634,7 @@ DataManager.prototype = {
 				
 				// build the target list
 				var hashData = {"id":targetID, "label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
-								"pos": parseInt(idx), "rank": parseInt(idx), "score": item.score.score};
+								"rank": parseInt(idx), "score": item.score.score};   //"pos": parseInt(idx),
 				this.target.push(hashData);
 
 				// matches is an array of all model matches
@@ -654,7 +655,7 @@ DataManager.prototype = {
 						// build a list of sources
 						if (!this.contains("source", sourceID_a)) {
 
-							dataVals = {"id":sourceID_a, "label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), "pos": 0, 
+							dataVals = {"id":sourceID_a, "label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), //"pos": 0, 
 											"count": count, "sum": sum, "type": "phenotype"};
 							this.source.push(dataVals);
 							//this.source.put(sourceID_a, hashDataVals);
@@ -1049,10 +1050,6 @@ DataManager.prototype = {
 
 		this.state.w = this.state.m[1] - this.state.m[3];  // 'w' name needs refactored, it unclear what this is for here
 
-		// set default display limits
-		this.state.targetDisplayLimit = this.state.dataDisplayCount;
-		this.state.sourceDisplayLimit = this.state.dataDisplayCount;
-
 		// shorthand for top of model region
 		this.state.yModelRegion = this.state.yoffsetOver + this.state.yoffset;
 		
@@ -1078,6 +1075,20 @@ DataManager.prototype = {
         /*** Build axis group here. */
         /* remember, source = phenotype and target=model */
    	    var self = this;
+
+		// set default display limits based on displaying 30
+		if (this.state.dataManager.source.length > this.state.dataDisplayCount) {
+			this.state.sourceDisplayLimit = this.state.dataDisplayCount;
+		} else {
+			this.state.sourceDisplayLimit = this.state.dataManager.source.length;
+		}
+
+		if (this.state.dataManager.target.length > this.state.dataDisplayCount) {
+			this.state.targetDisplayLimit = this.state.dataDisplayCount;
+		} else {
+			this.state.targetDisplayLimit = this.state.dataManager.target.length;
+		}
+
 
     	/* only do this if the group doesn't exist - don't
        	recreate on reload */
@@ -1136,7 +1147,7 @@ DataManager.prototype = {
 			
 			this._createGridlines();
 			this._createCellRects();
-			this._highlightSpecies();	
+			this._createSpeciesBorderOutline();	
 			
 			this._createOverviewSection();
 
@@ -1918,6 +1929,15 @@ _buildRenderedMatrix: function() {
 		else { return null; }
 	},
 
+	_getAxisDataPosition: function(key) {
+	    if (this.state.yAxisRender.contains(key)){
+		    return this.state.yAxisRender.getRelativePosition(key);
+		} else if (this.state.xAxisRender.contains(key)){
+		    return this.state.xAxisRender.getRelativePosition(key);
+		}
+		else { return -1; }
+	},
+
 	// Determines if an ID belongs to the Model or Phenotype hashtable
 	// MKD: MOVE TIS TO DATAMANAGER;  use type attribute instead of this hard-code
 	_getIDType: function(key) {
@@ -2351,13 +2371,13 @@ _buildRenderedMatrix: function() {
 
 		var self = this;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getRenderedSize();
+	    var sourceDisplayCount = self.state.yAxisRender.getRenderedSize();
 		var concept = self._getConceptId(data);
 		//console.log("selecting x item.."+concept);
 		var appearanceOverrides;
 
 		// Show that model label is selected. Change styles to bold, blue and full-length label
-		var model_label = self.state.svg.selectAll("text#" + concept)
+		var target_label = self.state.svg.selectAll("text#" + concept)
 			.style("font-weight", "bold")
 			.style("fill", "blue");
 
@@ -2370,7 +2390,7 @@ _buildRenderedMatrix: function() {
 			.attr("y", self.state.yoffset +2) 
 			.attr("class", "model_accent")
 			.attr("width", 15 * appearanceOverrides.offset)
-			.attr("height", (displayCount * self.state.heightOfSingleCell));
+			.attr("height", (sourceDisplayCount * self.state.heightOfSingleCell));
 
 		// obj is try creating an ojbect with an attributes array including "attributes", but I may need to define getAttrbitues
 		// just create a temporary object to pass to the next method...
@@ -2404,13 +2424,14 @@ _buildRenderedMatrix: function() {
 			.style("font-weight", "bold")
 			.style("fill", "blue");
 
-		appearanceOverrides = self._createHoverBox(curr_data);
+		appearanceOverrides = self._createHoverBox(id);
 
 		// create the related row rectangle
 		var highlight_rect = self.state.svg.append("svg:rect")
-			.attr("transform","translate(" + (self.state.axis_pos_list[1]) + "," + (self.state.yoffsetOver + 4) + ")")
-			.attr("x", 12)
-			.attr("y", function(d) {return d.ypos; }) //rowid
+//			.attr("transform","translate(" + (self.state.axis_pos_list[1]) + "," + (self.state.yoffsetOver + 4) + ")")
+			.attr("transform","translate(252, " + (this.state.yModelRegion + 5) + ")")			
+			.attr("x", 0) //
+			.attr("y", self._getAxisDataPosition(id) * self.state.heightOfSingleCell) //.ypos
 			.attr("class", "row_accent")  
 			.attr("width", this.state.modelWidth - 4)
 			.attr("height", 11 * appearanceOverrides.offset);
@@ -2420,7 +2441,7 @@ _buildRenderedMatrix: function() {
 
 	_createHoverBox: function(data){
 		var appearanceOverrides = {offset: 1, style: "model_accent"}; // may use this structure later, offset is only used now
-		var info = data;  //this._getAxisData(data);
+		var info = this._getAxisData(data);
 		var type = info.type;
 		if (type === undefined){
 			type = this._getIDType(data);
@@ -2875,7 +2896,7 @@ _buildRenderedMatrix: function() {
 */		
 	},
 
-	_highlightSpecies: function () {
+	_createSpeciesBorderOutline: function () {
 		// create the related model rectangles
 		var self = this;
 		var list = [];
@@ -3049,7 +3070,7 @@ _buildRenderedMatrix: function() {
 
 		this._createXRegion();
 		this._createYRegion();
-		this._highlightSpecies();
+		this._createSpeciesBorderOutline();
 		this._createCellRects();
 
 		/*
@@ -3061,11 +3082,11 @@ _buildRenderedMatrix: function() {
 
 	// Previously _createModelLabels
 	_createXLabels: function(self, models) {
-		var model_x_axis = d3.svg.axis().scale(self.state.xScale).orient("top");
+		var target_x_axis = d3.svg.axis().scale(self.state.xScale).orient("top");
 		self.state.svg.append("g")
 			.attr("transform","translate(" + (self.state.textWidth + self.state.xOffsetOver + 28) + "," + self.state.yoffset + ")")
 			.attr("class", "x axis")
-			.call(model_x_axis)
+			.call(target_x_axis)
 			// this be some voodoo...
 			// to rotate the text, I need to select it as it was added by the axis
 			.selectAll("text") 
@@ -3159,7 +3180,7 @@ _buildRenderedMatrix: function() {
 
 			if (this.state.invertAxis){
 				this.state.svg.selectAll("text.scores").attr("y", function(d) {
-					return self._getAxisData(d).ypos + 5;
+					return self._getAxisDataPosition(d) + 5;  // self._getAxisData(d).ypos + 5;
 				});
 				this.state.svg.selectAll("text.scores").attr("x", 0);
 				this.state.svg.selectAll("text.scores").attr("transform", "translate(" + (this.state.textWidth + 20) + "," + 40 + ")");
