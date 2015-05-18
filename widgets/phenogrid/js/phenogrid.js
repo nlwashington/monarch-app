@@ -59,24 +59,14 @@ function cellDataPoint(x,y) {
 	this.yID = y;
 }
 
-// Makes sure that matches are when both the X & Y values are the same
-function cellDataPointEquals(point1,point2) {
-	return point1.xID === point2.xID && point1.yID === point2.yID;
-}
-
-// Prints the point in a easy to understand way
-function cellDataPointPrint(point) {
-	return "X:" + point.xID + ", Y:" + point.yID;
-}
-
-
 /*
-* an object routine that will wrap data required for axis rendering
-*
-* @constructor
-* @param {integer} renderStartPos - render starting position
-* @param {integer} renderEndPos - render end position
-* @param {array} items - item list to use for the axis display
+ 	Constructor: AxisGroup 
+		an object routine that will wrap data required for axis rendering
+
+ 	Parameters:
+		renderStartPos - render starting position
+		renderEndPos - render end position
+		items - item list to use for the axis display 	
 */
 var AxisGroup = function(renderStartPos, renderEndPos,items)  {
 	this.renderStartPos = renderStartPos;
@@ -84,6 +74,10 @@ var AxisGroup = function(renderStartPos, renderEndPos,items)  {
     this.items = items;
 };
 
+/*
+ 	Class: AxisGroup 
+		an object routine that will wrap data required for axis rendering
+*/
 AxisGroup.prototype = {
 	constructor: AxisGroup,
 	/**
@@ -99,31 +93,55 @@ AxisGroup.prototype = {
 	 	get: function() {return this.renderEndPos;},
 	 	set: function(val) { this.renderEndPos = val;}
 	},
-	/**
-	* provides the subset range group size to rendered
-	* @return {integer} size of group range
+	/*
+		Function: getRenderedSize
+			provides the size of subset group range to render
+		
+		Return:
+			size of group range
 	*/
-	getGroupRenderSize: function() {
+	getRenderedSize: function() {
 		return (this.renderEndPos - this.renderStartPos);
 	},
-	/**
-	* provides the subset group to be rendered
-	* @return {array} array of objects of items
+	/*
+		Function: getRenderedItems
+			provides the subset group of items to be rendered
+
+		Return:
+			array of objects of items
 	*/	
 	getRenderedItems: function() {
 		return this.items.slice(this.renderStartPos, this.renderEndPos);
 	},
-	/**
-	* gets all items within the axisgroup
-	* @return {array} items - full list of items
+	/*
+		Function: getItems
+			gets all items within the axisgroup
+
+		Return:
+			array of items
 	*/
 	getItems: function() {
     	return this.items;
 	},
+	/*
+		Function: getRenderedItem
+			gets an item within the rendered axisgroup with a specified index
 
-	/**
-	* gets list of all rendered item IDs within the axisgroup
-	* @return {array} items - list of rendered item IDs
+		Return:
+			items
+	*/
+	getRenderedItem: function(index) {
+		var renderedList = this.getRenderedItems();
+		var item = renderedList[index];
+    	return item;
+	},
+
+	/*
+		Function: getRenderedItemIDs		
+			gets list of all rendered item IDs within the axisgroup
+
+		Return:
+			array list of rendered item IDs
 	*/	
 	getRenderedItemIDs: function() {
 		var renderedList = this.getRenderedItems();
@@ -132,13 +150,17 @@ AxisGroup.prototype = {
 			});
 		return ids;
 	},
-	/**
-	* checks a key to determine if it's within the rendered or viewable range
-	*
-	* @param {string} key 
-	* @return {integer}  returns -1 if item not found within rendered range
+	/*
+		Function: getRelativePosition
+			gets the relative position a key within the rendered or viewable range
+	
+		Parameters:
+			key - a key value to locate
+
+		Return:
+			index value, -1 if item not found within rendered range
 	*/
-	indexOf: function(key) {
+	getRelativePosition: function(key) {
 		var renderedList = this.getRenderedItems();
 		var index = 0, found = false, rec = null;
 		while (index < renderedList.length && !found) {
@@ -151,17 +173,66 @@ AxisGroup.prototype = {
 		}
 		return -1;
 	},
-	/**
-	* provides the size of the entire axis
-	* @return {integer} size of axis
+	/*
+		Function: getRelativeStartPosition
+			gets the relative index of the starting position within the rendered or viewable range
+	
+		Parameters:
+			none
+
+		Return:
+			index value, -1 if no starting item was found within rendered range
 	*/	
-	getAxisSize: function() {
+	getRelativeStartPostion: function() {
+		var itm = this.getRenderedItem(0);
+		if (itm != null) {
+			return this.getAbsolutePosition(itm.id);
+		}
+		return -1;
+	}, 	
+	/*
+		Function: getAbsolutePosition
+			gets the absolute position in the axis for a given key
+	
+		Parameters:
+			key - a key value to locate
+
+		Return:
+			index value, -1 if item not found 
+	*/	
+	getAbsolutePosition: function(key) {
+		var index = 0, found = false, rec = null;
+		while (index < this.items.length && !found) {
+			rec = this.items[index];			
+			if (rec.id == key) {
+				found = true;
+				return index; 
+			}
+			index++;
+		}
+		return -1;
+	},
+
+
+	/*
+		Function: size
+			provides the size of the entire axis
+
+		Return:
+			size of axis
+	*/	
+	size: function() {
     	return this.items.length;
 	},
-	/**
-	* gets a single item element from the axis 
-	* @param {string} key
-	* @return {object} item element
+	/*
+		Function: get
+			gets a single item element from the axis 
+	
+		Parameters:
+			key
+
+		Returns:
+			item element
 	*/	
 	get: function(key) {
 		var i = 0, found = false, rec = null;
@@ -175,15 +246,41 @@ AxisGroup.prototype = {
 		}
 		return null;
 	},
+	/*
+		Function: contains
+			determines if a item element is contained within the axis 
+	
+		Parameters:
+			key - key id to locate
+
+		Returns:
+			boolean
+	*/	
 	contains: function(key) {
 		if (this.get(key) != null)
 			return true;
 		else
 			return false;
 	},
+	/*
+		Function: itemsPut
+			puts an item onto the axis 
+	
+		Parameters:
+			val - value item
+
+	*/	
 	itemsPut: function(val) {
     	this.items.push(val);
     },
+    /*
+		Function: sort
+			sorts the data on the axis 
+	
+		Parameters:
+			by - specifies the the sort type
+
+	*/	
     sort: function(by) {
  		if (by == 'Frequency') {
 			sortFunc = self._sortByFrequency;
@@ -210,16 +307,13 @@ AxisGroup.prototype = {
     }
 };
 
-//***************************************
-// TEMP LOCATION OF DATAMANAGER
-/**
- * DataManager handles all interaction with the data, from fetching from external 
- * servers, transformation and storage.
- *
- * @constructor
- * @param {object} parent - reference to parent calling object
- * @param {string} serverUrl - sim server url
- */
+/*
+ 	Constructor: DataManager 
+
+ 	Parameters:
+  		parent - reference to parent calling object
+ 		serverUrl - sim server url, or location of server to provide data
+*/
 var DataManager = function(parent, serverUrl) {
 	this.parent = parent;
 	this.simServerURL = serverUrl;
@@ -296,6 +390,7 @@ DataManager.prototype = {
 
 	/*
 		Function: cellPointMatch
+			takes to a key pair and matches it to the cellData point
 
 		Parameters:
 			key1 - first key to match
@@ -1019,7 +1114,7 @@ DataManager.prototype = {
 	    //if (this.state.phenoLength !== 0 && this.state.filteredCellData.length !== 0){
 	    //if (this.state.dataManager.source.length !== 0 && this.state.dataManager.cellData.length !== 0) { //this.state.filteredCellData.length !== 0){
 		if (this.state.dataManager.isInitialized()) {
-			var displayRangeCount = this.state.yAxisRender.getGroupRenderSize();
+			var displayRangeCount = this.state.yAxisRender.getRenderedSize();
 
 			this._setComparisonType();
 			this._initCanvas();
@@ -1043,7 +1138,7 @@ DataManager.prototype = {
 			this._createCellRects();
 			this._highlightSpecies();	
 			
-//			this._createOverviewSection();
+			this._createOverviewSection();
 
 			var height = rectHeight + 40;
 
@@ -1130,8 +1225,8 @@ DataManager.prototype = {
 		var mHeight = self.state.heightOfSingleCell;
 		// create a blank grid to match the size of the phenogrid grid
 		var data = [];
-   	    var rowCt = self.state.yAxisRender.getGroupRenderSize();
-   	    var colCt = self.state.xAxisRender.getGroupRenderSize();
+   	    var rowCt = self.state.yAxisRender.getRenderedSize();
+   	    var colCt = self.state.xAxisRender.getRenderedSize();
 	     
 
 		for (var k = 0; k < rowCt; k++){
@@ -1171,10 +1266,14 @@ DataManager.prototype = {
 	// For the selection area, see if you can convert the selection to the idx of the x and y then redraw the bigger grid 
 	_createOverviewSection: function() {
 		var self = this;
-	    var yCount = self.state.yAxisRender.getGroupRenderSize();
-	    var xCount = self.state.xAxisRender.getGroupRenderSize();
-		var startYIdx = this.state.currYIdx - yCount;
-		var startXIdx = this.state.currXIdx - xCount;
+
+		// set the total counts on each axis
+	    var yCount = self.state.yAxisRender.size();
+	    var xCount = self.state.xAxisRender.size();
+
+	    // get the rendered starting point on axis
+		var startYIdx = self.state.yAxisRender.getRelativeStartPostion();    // this.state.currYIdx - yCount;
+		var startXIdx = self.state.xAxisRender.getRelativeStartPostion();    // this.state.currXIdx - xCount;
 
 		// add-ons for stroke size on view box. Preferably even numbers
 		var linePad = 2;
@@ -1190,7 +1289,7 @@ DataManager.prototype = {
 
 		// size of the entire region - it is a square
 		var overviewRegionSize = self.state.globalViewSize;
-		if (this.state.yAxisRender.getAxisSize() < yCount) {
+		if (this.state.yAxisRender.getRenderedSize() < yCount) {
 			overviewRegionSize = self.state.reducedGlobalViewSize;
 		}
 
@@ -1205,10 +1304,10 @@ DataManager.prototype = {
 
 		// add the items using smaller rects
 		//var cellData = self._mergeHashEntries(self.state.cellDataHash);
-		var cellData = self._mergeHashEntries(self.state.dataManager.cellData);
+		var data = self.state.dataManager.cellData;
 
 		var cell_rects = this.state.svg.selectAll(".mini_cells")
-			.data(cellData, function(d) {return d.yID + d.xID;});
+			.data(data, function(d) {return d.source_id + d.target;});   //d.yID + d.xID;});
 		overviewX++;	// Corrects the gapping on the sides
 		overviewY++;
 		var cellRectTransform = "translate(" + overviewX +	"," + overviewY + ")";
@@ -1231,10 +1330,12 @@ DataManager.prototype = {
 								   d.value[self.state.selectedCalculation]);
 			});
 
-     	var lastYId = self._returnID(this.state.yAxisRender.getItems(),yCount - 1);
-	    var lastXId = self._returnID(this.state.xAxisRender.getItems(),xCount - 1);
-   	    var startYId = self._returnID(this.state.yAxisRender.getItems(),startYIdx);
-	    var startXId = self._returnID(this.state.xAxisRender.getItems(),startXIdx);
+		var yRenderedSize = this.state.yAxisRender.getRenderedSize();
+		var xRenderedSize = this.state.xAxisRender.getRenderedSize();		
+     	var lastYId = this.state.yAxisRender.getRenderedItem(yRenderedSize - 1).id; // self._returnID(this.state.yAxisRender.getItems(),yCount - 1);
+	    var lastXId = this.state.xAxisRender.getRenderedItem(xRenderedSize - 1).id; //self._returnID(this.state.xAxisRender.getItems(),xCount - 1);
+   	    var startYId = this.state.yAxisRender.getRenderedItem(startYIdx).id;   //self._returnID(this.state.yAxisRender.getItems(),startYIdx);
+	    var startXId = this.state.xAxisRender.getRenderedItem(startXIdx).id; //self._returnID(this.state.xAxisRender.getItems(),startXIdx);
 
 		var selectRectX = self.state.smallXScale(startXId);
 		var selectRectY = self.state.smallYScale(startYId);
@@ -1313,8 +1414,8 @@ DataManager.prototype = {
 	},
 
 	// Returns the ID of the value on the Y Axis based on current position provided
-	_returnID: function(hashtable,position){
-		var searchArray = hashtable.entries();
+	_returnID: function(dataset,position){
+		var searchArray = dataset;   //hashtable.entries();
 		var results = false;
 		for (var i in searchArray){
 			if (searchArray[i][1].pos == position){
@@ -1325,7 +1426,9 @@ DataManager.prototype = {
 		return results;
 	},
 
-	// When a hashtable is pass through, it will merge the key into the values and return an array with all needed info.
+	/* 
+OBSOLETE
+	When a hashtable is pass through, it will merge the key into the values and return an array with all needed info.
 	// Mainly used for D3 and it's unabilty to read non-native data structures
 	_mergeHashEntries: function(hashT){
 		var premerged = hashT.entries();
@@ -1341,7 +1444,7 @@ DataManager.prototype = {
 		}
 		return merged;
 	},
-
+*/
 	// We only have 3 color,s but that will do for now
 	_getColorForCellValue: function(self,species,score) {
 		// This is for the new "Overview" target option
@@ -1527,8 +1630,6 @@ DataManager.prototype = {
 
 	// Previously processSelected
 	_processDisplay: function(){
-//		this._sortSource();  // MKD: refactored to AxisGroup
-//		this._filterDisplay();
 		this._buildRenderedMatrix();
 		this.state.unmatchedSources = this._getUnmatchedSources();
 		this.element.empty();
@@ -1571,12 +1672,12 @@ _buildRenderedMatrix: function() {
 					if (typeof (cellMatch) !== 'undefined') {
 						var xPos, yPos;
 						if (this.state.invertAxis){
-							yPos = this.state.xAxisRender.indexOf(cellMatch.source_id);
-							xPos = this.state.yAxisRender.indexOf(cellMatch.target_id);
+							yPos = this.state.xAxisRender.getRelativePosition(cellMatch.source_id);
+							xPos = this.state.yAxisRender.getRelativePosition(cellMatch.target_id);
 							
 						} else {
-							xPos = this.state.xAxisRender.indexOf(cellMatch.target_id);
-							yPos = this.state.yAxisRender.indexOf(cellMatch.source_id);
+							xPos = this.state.xAxisRender.getRelativePosition(cellMatch.target_id);
+							yPos = this.state.yAxisRender.getRelativePosition(cellMatch.source_id);
 			 			}
 			 			if ( xPos > -1 && yPos > -1) {
 				 			var coords = {xpos: xPos, ypos: yPos};
@@ -1613,15 +1714,15 @@ _buildRenderedMatrix: function() {
 	},
 */
 	// Previously filterSelected
-// MKD: REFACTOR THIS TO USE AXISGROUP
+/* MKD: REFACTOR THIS TO USE AXISGROUP
 	_filterDisplay: function(){
 		var self = this;
 		var axis_idx = 0;
 		var sortedYArray = [];
 
-	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.getGroupRenderSize();
+	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.getRenderedSize();
 		var	displayYLimiter = this.state.currYIdx;
-	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.getGroupRenderSize();
+	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.getRenderedSize();
 		var	displayXLimiter = this.state.currXIdx;
 
 	    this.state.filteredYAxis = self._filterListHash(this.state.yAxisRender.getItems(),
@@ -1646,7 +1747,7 @@ _buildRenderedMatrix: function() {
 
 		self._filterHashTables();
 	},
-
+*/
 	// given a list of phenotypes, find the top n models
 	// I may need to rename this method "getModelData". It should extract the models and reformat the data 
 	_loadData: function() {
@@ -1768,129 +1869,6 @@ _buildRenderedMatrix: function() {
 		}
 	},
 
-// MKD: refactor to DM
-	_finishOverviewLoad: function () {
-		var speciesList = [];
-		var posID = 0;
-		var type, ID, hashData;
-		var variantNum = 0;
-
-		for (var i in this.state.targetSpeciesList) {
-			var species = this.state.targetSpeciesList[i].name;
-			var specData = this.state.data[species];
-			if (specData !== null && typeof(specData.b) !== 'undefined' && specData.b.length > 0) {
-				for (var idx in specData.b) {
-					var item = specData.b[idx];
-					ID = this._getConceptId(item.id);
-
-					// [vaa12] HACK.  NEEDED FOR ALLOWING MODELS OF THE SAME ID AKA VARIANTS TO BE DISPLAYED W/O OVERLAP
-					// SEEN MOST WITH COMPARE AND/OR EXOMISER DATA
-					if (this.state.modelListHash.containsKey(ID)){
-						ID += "_" + variantNum;
-						variantNum++;
-					}
-
-					type = this.state.defaultApiEntity;
-					for (var j in this.state.apiEntityMap) {
-						if (ID.indexOf(this.state.apiEntityMap[j].prefix) === 0) {
-							type = this.state.apiEntityMap[j].apifragment;
-						}
-					}
-
-					hashData = {"label": item.label, "species": species, "taxon": item.taxon.id, "type": type, "pos": parseInt(posID), "rank": parseInt(idx), "score": item.score.score};
-					this.state.modelListHash.put(ID, hashData);
-					this._loadDataForModel(ID, item);
-					posID++;
-				}
-				this.state.multiOrganismCt = specData.b.length;
-				speciesList.push(species);
-			}
-		}
-
-		this.state.speciesList = speciesList;
-	},
-
-	/*
-	 * Finish the data load after the ajax request
-	 * Create the modelList array: model_id, model_label, model_score, model_rank
-	 * Call _loadDataForModel to put the matches in an array
-	 */
-	_finishLoad: function() {
-		var species = this.state.targetSpeciesName;
-		var retData = this.state.data[species];
-		var hashData, ID, type, z;
-		var variantNum = 0;
-
-		if (typeof(retData) ==='undefined'  || retData === null) {
-			return;
-		}
-		// extract the maxIC score
-		if (typeof (retData.metadata) !== 'undefined') {
-			this.state.maxICScore = retData.metadata.maxMaxIC;
-		}
-
-		if (typeof (retData.b) !== 'undefined') {
-			for (var idx in retData.b) {
-				var item = retData.b[idx];
-				ID = this._getConceptId(item.id);
-
-				// [vaa12] HACK.  NEEDED FOR ALLOWING MODELS OF THE SAME ID AKA VARIANTS TO BE DISPLAYED W/O OVERLAP
-				// SEEN MOST WITH COMPARE AND/OR EXOMISER DATA
-				if (this.state.modelListHash.containsKey(ID)){
-					ID += "_" + variantNum;
-					variantNum++;
-				}
-
-				type = this.state.defaultApiEntity;
-				for (var j in this.state.apiEntityMap) {
-					if (ID.indexOf(this.state.apiEntityMap[j].prefix) === 0) {
-						type = this.state.apiEntityMap[j].apifragment;
-					}
-				}
-				
-				hashData = {"label": item.label, "species": species, "taxon": item.taxon.id, "type": type, "pos": parseInt(idx), "rank": parseInt(idx), "score": item.score.score};
-				this.state.modelListHash.put(ID, hashData);
-				this._loadDataForModel(ID, item);
-			}
-		}
-	},
-
-	/*
-	 * For a given model, extract the sim search data including IC scores and the triple:
-	 * The a column, b column, and lowest common subsumer for the triple's IC score, use the LCS score
-	 */
-// MKD: REFACTORED TO DATAMANAGER	 
-	_loadDataForModel: function(modelID, newModelData) {
-		// data is an array of all model matches
-		var data = newModelData.matches;
-		var curr_row, lcs, cellPoint, hashData;
-		if (typeof(data) !== 'undefined' && data.length > 0) {
-
-			for (var idx in data) {
-				curr_row = data[idx];
-				lcs = this._normalizeIC(curr_row);
-/* MKD: this is initialized in DM;  need to add the HPO stuff in DM
-				if (!this.state.phenotypeListHash.containsKey(this._getConceptId(curr_row.a.id))){
-					hashData = {"label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), "pos": 0, "count": 0, "sum": 0, "type": "phenotype"};
-					this.state.phenotypeListHash.put(this._getConceptId(curr_row.a.id), hashData);
-					if (!this.state.hpoCacheBuilt && this.state.preloadHPO){
-						this._getHPO(this._getConceptId(curr_row.a.id));
-					}
-				}
-*/
-				// Setting cellDataHash
-				if (this.state.invertAxis){
-					cellPoint = new cellDataPoint(this._getConceptId(curr_row.a.id), this._getConceptId(modelID));
-				} else {
-					cellPoint = new cellDataPoint(this._getConceptId(modelID), this._getConceptId(curr_row.a.id));
-				}
-//				this._updateSortVals(this._getConceptId(curr_row.a.id), parseFloat(curr_row.lcs.IC));
-				hashData = {"value": lcs, "subsumer_label": curr_row.lcs.label, "subsumer_id": this._getConceptId(curr_row.lcs.id), "subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, "b_id": this._getConceptId(curr_row.b.id), "b_IC": parseFloat(curr_row.b.IC)};
-				this.state.cellDataHash.put(cellPoint, hashData);
-			}
-		}
-	},
-
 	// Different methods of based on the selectedCalculationMethod
 	_normalizeIC: function(datarow){
 		var aIC = datarow.a.IC;
@@ -1930,34 +1908,6 @@ _buildRenderedMatrix: function() {
 		this.state.dataManager.source.put(key,values);
 	},
 
-	// Sets the correct position for the value on the yAxis on where it belongs in the grid/axis
-// MKD: refactor to use ViewPort???
-	_setYPosHash: function(key,ypos) {
-  	        var values = this.state.yAxisRender.get(key);
-		values.ypos = ypos;
-	    this.state.yAxisRender.itemsPut(key,values);
-	},
-
-	//MKD:MAY NOT NEED THIS
-	// Updates the count & sum values used for sorting
-	_updateSortVals: function(key,subIC) {
-		var values;
-		values = this.state.phenotypeListHash.get(key);
-		values.count += 1;
-		values.sum += subIC;
-		this.state.phenotypeListHash.put(key,values);
-	},
-
-	// Returns values from a point on the grid
-//MKD: from DM?	
-	_getCellData: function(point) {
-		if (this.state.cellDataHash.containsKey(point)){
-			return this.state.cellDataHash.get(point);
-		} else {
-			return false;
-		}
-	},
-
 	// Returns axis data from a ID of models or phenotypes
 	_getAxisData: function(key) {
 	    if (this.state.yAxisRender.contains(key)){
@@ -1989,40 +1939,8 @@ _buildRenderedMatrix: function() {
 		return "unknown";
 	},
 
-	// Creates the filteredCellData data structure
-	_filterHashTables: function () {
-		var newFilteredCell = [];
-		//var currentCellData = this.state.cellDataHash.entries();
-//MKD: refactor to DM		
-		var currentCellData = this.state.dataManager.cellData.entries();
-
-		for (var i in currentCellData){
-			if (this.state.filteredXAxis.containsKey(currentCellData[i][0].xID) && this.state.filteredYAxis.containsKey(currentCellData[i][0].yID)){
-				currentCellData[i][1].yID = currentCellData[i][0].yID;
-				currentCellData[i][1].xID = currentCellData[i][0].xID;
-				newFilteredCell.push(currentCellData[i][1]);
-			}
-		}
-//MKD: trying using Viewport here		
-		this.state.filteredCellData = newFilteredCell;
-	},
-
-	// Filters down the axis hashtables based on what the limits are
-// MKD: refactor to AxisGroup
-	_filterListHash: function (hash,start,end) {
-		var filteredHash = new Hashtable();
-		var oldHash = hash.entries();
-
-		for (var i in oldHash){
-			if (oldHash[i][1].pos >= start && oldHash[i][1].pos < end){
-				filteredHash.put(oldHash[i][0],oldHash[i][1]);
-			}
-		}
-
-		return filteredHash;
-	},
-
 	// generic ajax call for all queries
+	// MKD: refactor to DM
 	_ajaxLoadData: function (target, url) {
 		var self = this;
 		var res;
@@ -2433,7 +2351,7 @@ _buildRenderedMatrix: function() {
 
 		var self = this;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
+	    var displayCount = self.state.yAxisRender.getRenderedSize();
 		var concept = self._getConceptId(data);
 		//console.log("selecting x item.."+concept);
 		var appearanceOverrides;
@@ -2492,7 +2410,7 @@ _buildRenderedMatrix: function() {
 		var highlight_rect = self.state.svg.append("svg:rect")
 			.attr("transform","translate(" + (self.state.axis_pos_list[1]) + "," + (self.state.yoffsetOver + 4) + ")")
 			.attr("x", 12)
-			.attr("y", function(d) {return info.ypos; }) //rowid
+			.attr("y", function(d) {return d.ypos; }) //rowid
 			.attr("class", "row_accent")  
 			.attr("width", this.state.modelWidth - 4)
 			.attr("height", 11 * appearanceOverrides.offset);
@@ -2649,20 +2567,6 @@ _buildRenderedMatrix: function() {
 	 * screen based their relationship to a common concept (ex: HP000123). However, I can't use a URI as a class.
 	 */
 	_getConceptId: function (uri) {
-		//if (!uri) {
-		//	return "";
-		//}
-		//var startpos = uri.lastIndexOf("/");
-		//var len = uri.length;
-
-		// remove the last > if there is one
-
-		//var endpos = uri.indexOf(">") == len-1 ? len-1 : len;
-		//var retString = uri + "";
-		//if (startpos != -1) {
-		//	retString = uri.substring(startpos+1,endpos);
-		//}
-
 		// replace spaces with underscores. Classes are separated with spaces so a class called "Model 1" will be two classes: Model and 1. Convert this to "Model_1" to avoid this problem.
 		var retString = uri;
 		try {
@@ -2751,7 +2655,7 @@ _buildRenderedMatrix: function() {
 		}
 		var wdt = this.state.axis_pos_list[1] + ((this.state.axis_pos_list[2] - this.state.axis_pos_list[1])/2);
 	    //var displayCount = this._getYLimit();
-	    var displayCount = this.state.yAxisRender.getGroupRenderSize();
+	    var displayCount = this.state.yAxisRender.getRenderedSize();
 		var hgt = displayCount * 10 + this.state.yoffset;
 		var yv, wv;
 
@@ -2955,7 +2859,7 @@ _buildRenderedMatrix: function() {
 			var colorID = d[colorSelector];
 			return self._getColorForCellValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
 		});
-/*
+/*  MKD: I don't think this code is necessary, it just seems to provide some animation
 		cell_rects.transition()
 			.delay(20)
 			.style('opacity', '1.0')
@@ -2980,8 +2884,8 @@ _buildRenderedMatrix: function() {
 		var hwidthAndGap = self.state.widthOfSingleCell;
 		var totCt = 0;
 		var parCt = 0;
-	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
-	    var displayCountX = self.state.xAxisRender.getGroupRenderSize();
+	    var displayCount = self.state.yAxisRender.getRenderedSize();
+	    var displayCountX = self.state.xAxisRender.getRenderedSize();
 
 		// Have temporarly until fix for below during Axis Flip
 		if (self.state.targetSpeciesName == "Overview"){
@@ -3058,13 +2962,13 @@ _buildRenderedMatrix: function() {
 	_highlightIntersection: function(curr_data, obj){
 		var self = this;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
+	    var displayCount = self.state.yAxisRender.getRenderedSize();
 		// Highlight Row
 		var highlight_rect = self.state.svg.append("svg:rect")
 			//.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
 			.attr("transform","translate(252, " + (this.state.yModelRegion + 5) + ")")
 			.attr("x", 0) //12
-			.attr("y", function(d) {return self.state.yAxisRender.indexOf(curr_data.source_id) * self.state.heightOfSingleCell; }) //rowid yID
+			.attr("y", function(d) {return self.state.yAxisRender.getRelativePosition(curr_data.source_id) * self.state.heightOfSingleCell; }) //rowid yID
 			.attr("class", "row_accent")
 			.attr("width", this.state.modelWidth - 4)
 			.attr("height", self.state.heightOfSingleCell);
@@ -3125,8 +3029,8 @@ _buildRenderedMatrix: function() {
 	 * Movecount is an integer and can be either positive or negative
 	 */
 	_updateCells: function(newXPos, newYPos){
-		var xSize = this.state.xAxisRender.getAxisSize();
-		var ySize = this.state.yAxisRender.getAxisSize();
+		var xSize = this.state.xAxisRender.getRenderedSize();
+		var ySize = this.state.yAxisRender.getRenderedSize();
 
 		if (newXPos > xSize){
 			this.state.currXIdx = xSize;
@@ -3140,7 +3044,7 @@ _buildRenderedMatrix: function() {
 			this.state.currYIdx = newYPos;
 		}
 
-		this._filterDisplay();
+//		this._filterDisplay();
 		this._clearXLabels();
 
 		this._createXRegion();
@@ -3200,7 +3104,7 @@ _buildRenderedMatrix: function() {
 		var modelLineGap = 30;
 		var lineY = this.state.yoffset + modelLineGap;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
+	    var displayCount = self.state.yAxisRender.getRenderedSize();
 		//this.state.svg.selectAll("path.domain").remove();
 		//this.state.svg.selectAll("text.scores").remove();
 		//this.state.svg.selectAll("#specieslist").remove();
@@ -3345,7 +3249,7 @@ _buildRenderedMatrix: function() {
 		var self = this;
 		this._buildAxisPositionList();
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getGroupRenderSize();
+	    var displayCount = self.state.yAxisRender.getRenderedSize();
 
 		var gridHeight = displayCount * self.state.heightOfSingleCell + 10;
 		if (gridHeight < self.state.minHeight) {
@@ -3383,7 +3287,7 @@ _buildRenderedMatrix: function() {
 		this.state.axis_pos_list = [];
 		// calculate width of model section
 		//this.state.modelWidth = this.state.filteredXAxis.size() * this.state.widthOfSingleCell;
-		this.state.modelWidth = this.state.xAxisRender.getGroupRenderSize() * this.state.widthOfSingleCell;
+		this.state.modelWidth = this.state.xAxisRender.getRenderedSize() * this.state.widthOfSingleCell;
 
 		// add an axis for each ordinal scale found in the data
 		for (var i = 0; i < 3; i++) {
@@ -3447,7 +3351,7 @@ _buildRenderedMatrix: function() {
 	_addGradients: function() {
 		var self = this;
 		//var cellData = this.state.cellDataHash.values();
-		var cellData = this.state.dataManager.cellData;
+		var cellData = this.state.dataManager.cellData[self.state.targetSpeciesName];
 		var temp_data = cellData.map(function(d) { return d.value[self.state.selectedCalculation];} );
 		var diff = d3.max(temp_data) - d3.min(temp_data);
 		var y1;
@@ -3455,7 +3359,7 @@ _buildRenderedMatrix: function() {
 		// only show the scale if there is more than one value represented in the scale
 		if (diff > 0) {
 			// baseline for gradient positioning
-			if (this.state.phenoLength < this.state.sourceDisplayLimit) {
+			if (this.state.dataManager.source.length < this.state.sourceDisplayLimit) {
 				y1 = 172;
 			} else {
 				y1 = 262;
@@ -4311,7 +4215,8 @@ _buildRenderedMatrix: function() {
 			// update the model data 
 			for (var idx in returnObj.compareScores.b) {
 				var b = returnObj.compareScores.b;
-				this._loadDataForModel(b);
+// MKD: need this refactored
+//				this._loadDataForModel(b);
 			}
 
 			console.log("Starting Insertion...");
