@@ -50,15 +50,6 @@
  */
 var url = document.URL;
 
-
-// cell data are the contents of each of the cells in the grid.
-
-// Creation of cellDataPoint object
-function cellDataPoint(x,y) {
-	this.xID = x;
-	this.yID = y;
-}
-
 /*
  	Constructor: AxisGroup 
 		an object routine that will wrap data required for axis rendering
@@ -545,7 +536,7 @@ DataManager.prototype = {
 		    if (typeof(limit) !== 'undefined') {
 		    	url += "&limit=" + limit;
 			}
-		    
+		    console.log(url);
 			jQuery.ajax({
 				url: url, 
 				async : false,
@@ -637,7 +628,6 @@ DataManager.prototype = {
 								"rank": parseInt(idx), "score": item.score.score};   //"pos": parseInt(idx),
 				this.target.push(hashData);
 
-				// matches is an array of all model matches
 				var matches = data.b[idx].matches;
 				var curr_row, lcs, cellPoint, dataVals;
 				var sourceID_a, currID_lcs;
@@ -676,7 +666,8 @@ DataManager.prototype = {
 									"subsumer_label": curr_row.lcs.label, "subsumer_id": currID_lcs, 
 									"subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, 
 									"species": item.taxon.label,
-									"b_id": currID_b, "b_IC": parseFloat(curr_row.b.IC)};						
+									"b_id": currID_b, "b_IC": parseFloat(curr_row.b.IC),
+									"rowid": sourceID_a + "_" + currID_lcs};						
 
 						this.cellData[species].push(dataVals);
 					}
@@ -1052,10 +1043,6 @@ DataManager.prototype = {
 
 		// shorthand for top of model region
 		this.state.yModelRegion = this.state.yoffsetOver + this.state.yoffset;
-		
-// MKD: these can be possible eliminated
-//		this._adjustPhenotypeCount();
-//	    this._adjustModelCount();
 
 	    // initialize axis groups
 	    this._createAxisRenderingGroups();
@@ -1122,8 +1109,6 @@ DataManager.prototype = {
 	},
 
 	_reDraw: function() {
-	    //if (this.state.phenoLength !== 0 && this.state.filteredCellData.length !== 0){
-	    //if (this.state.dataManager.source.length !== 0 && this.state.dataManager.cellData.length !== 0) { //this.state.filteredCellData.length !== 0){
 		if (this.state.dataManager.isInitialized()) {
 			var displayRangeCount = this.state.yAxisRender.getRenderedSize();
 
@@ -1260,19 +1245,6 @@ DataManager.prototype = {
 			.attr("width", 14)
 			.attr("height", 11.5);
 	},
-
-	// Sets the X & Y axis hash datastructures correctly based on axis position
-/*	_setAxisValues: function() {
-		// By default, X = Models and Y = Phenotypes.  Same goes for xID and yID in the modelData structures
-		// This is reversed for when invertAxis is true
-		if (this.state.invertAxis){
-			this.state.xAxis = this.state.phenotypeListHash;
-			this.state.yAxis = this.state.modelListHash;
-		} else {
-			this.state.xAxis = this.state.modelListHash;
-			this.state.yAxis = this.state.phenotypeListHash;
-		}
-	},*/
 
 	// For the selection area, see if you can convert the selection to the idx of the x and y then redraw the bigger grid 
 	_createOverviewSection: function() {
@@ -1425,37 +1397,18 @@ DataManager.prototype = {
 	},
 
 	// Returns the ID of the value on the Y Axis based on current position provided
-	_returnID: function(dataset,position){
-		var searchArray = dataset;   //hashtable.entries();
-		var results = false;
-		for (var i in searchArray){
-			if (searchArray[i][1].pos == position){
-				results = searchArray[i][0];
-				break;
-			}
-		}
-		return results;
-	},
+	// _returnID: function(dataset,position){
+	// 	var searchArray = dataset;   //hashtable.entries();
+	// 	var results = false;
+	// 	for (var i in searchArray){
+	// 		if (searchArray[i][1].pos == position){
+	// 			results = searchArray[i][0];
+	// 			break;
+	// 		}
+	// 	}
+	// 	return results;
+	// },
 
-	/* 
-OBSOLETE
-	When a hashtable is pass through, it will merge the key into the values and return an array with all needed info.
-	// Mainly used for D3 and it's unabilty to read non-native data structures
-	_mergeHashEntries: function(hashT){
-		var premerged = hashT.entries();
-		var merged = [];
-		for (var i in premerged){
-			if (typeof(premerged[i][0].yID) !== 'undefined'){
-				premerged[i][1].yID = premerged[i][0].yID;
-				premerged[i][1].xID = premerged[i][0].xID;
-			} else {
-				premerged[i][1].id = premerged[i][0];
-			}
-			merged[i] = premerged[i][1];
-		}
-		return merged;
-	},
-*/
 	// We only have 3 color,s but that will do for now
 	_getColorForCellValue: function(self,species,score) {
 		// This is for the new "Overview" target option
@@ -1647,27 +1600,8 @@ OBSOLETE
 		this._reDraw();
 	},
 
-	// given the full dataset, return a filtered dataset containing the
-	// subset of data bounded by the phenotype display count and the model display count
-// MKD: this should work off AxisGroup or based on Viewport/x/y; can we eliminate?	
-	_adjustPhenotypeCount: function() {
-		// we need to adjust the display counts and indexing if there are fewer phenotypes than the default
-		//if (this.state.phenoLength < this.state.sourceDisplayLimit) {
-		if (this.state.dataManager.source.length < this.state.sourceDisplayLimit) {
-			// this.state.sourceDisplayLimit = this.state.phenoLength;
-			this.state.sourceDisplayLimit = this.state.dataManager.source.length;
-		}
-	},
-
-// MKD: this should work off AxisGroup or based on Viewport/x/y; can we eliminate?
-	_adjustModelCount: function() {
-		// we need to adjust the display counts and indexing if there are fewer models
-		if (this.state.modelLength < this.state.targetDisplayLimit) {
-			this.state.targetDisplayLimit = this.state.modelLength;
-		}
-	},
-
-_buildRenderedMatrix: function() {
+	// builds the rendered matrix
+	_buildRenderedMatrix: function() {
 		var newFilteredCell = [];
 
 		if ( this.state.targetSpeciesName != "Overview") {
@@ -1681,49 +1615,44 @@ _buildRenderedMatrix: function() {
 					var cellMatch = this.state.dataManager.cellPointMatch(sourceList[s], targetList[t], this.state.targetSpeciesName);
 
 					if (typeof (cellMatch) !== 'undefined') {
-						var xPos, yPos;
+						var xPos, yPos, source, target;
+
+						// if (this.state.invertAxis){
+						// 	xPos = this.state.xAxisRender.getRelativePosition(cellMatch.source_id);
+						// 	yPos = this.state.yAxisRender.getRelativePosition(cellMatch.target_id);												
+						// } else {
+						// 	xPos = this.state.xAxisRender.getRelativePosition(cellMatch.target_id);
+						// 	yPos = this.state.yAxisRender.getRelativePosition(cellMatch.source_id);
+			 		// 	}
 						if (this.state.invertAxis){
-							yPos = this.state.xAxisRender.getRelativePosition(cellMatch.source_id);
-							xPos = this.state.yAxisRender.getRelativePosition(cellMatch.target_id);
-							
+							source = cellMatch.target_id;
+							target = cellMatch.source_id;
 						} else {
-							xPos = this.state.xAxisRender.getRelativePosition(cellMatch.target_id);
-							yPos = this.state.yAxisRender.getRelativePosition(cellMatch.source_id);
+							source = cellMatch.source_id;
+							target = cellMatch.target_id;
 			 			}
+	 					xPos = this.state.xAxisRender.getRelativePosition(target);
+						yPos = this.state.yAxisRender.getRelativePosition(source);
+
 			 			if ( xPos > -1 && yPos > -1) {
 				 			var coords = {xpos: xPos, ypos: yPos};
+				 		
+				 			// update cell source/target
+				 			cellMatch.source_id = source;
+							cellMatch.target_id = target;
+
 				 			var rec = $.extend({}, cellMatch, coords); //, ids);
 							newFilteredCell.push(rec);
 			 			}			 		
 			 		}
 				}
 			}
-			this.state.filteredCellData = newFilteredCell;
+			if (newFilteredCell != null && newFilteredCell.length > 0) {
+				newFilteredCell.sort(function(a, b) { return a.yPos-b.yPos});	
+				this.state.filteredCellData = newFilteredCell;	
+			}
 		}
 	},
-/*	_buildRenderedMatrix: function() {
-		var newFilteredCell = [];
-
-		if ( this.state.targetSpeciesName != "Overview") {
-			var currentCellData = this.state.dataManager.cellData[this.state.targetSpeciesName];
-
-			for (var i in currentCellData){
-				// get the position from the rendered source and targets
-				var xPos = this.state.xAxisRender.getOrdinalPosition(currentCellData[i].target_id);
-				var yPos = this.state.yAxisRender.getOrdinalPosition(currentCellData[i].source_id);
-			 	if ( xPos > -1 && yPos > -1) {
-					//var ids = {xID: currentCellData[i].target_id, yID: currentCellData[i].source_id};  // keep this for compatibility 
-			 		var coords = {xpos: xPos, ypos: yPos};
-			 		var rec = $.extend({}, currentCellData[i], coords); //, ids);
-			 		newFilteredCell.push(rec);
-			 	}			 		
-			 }
-			this.state.filteredCellData = newFilteredCell;
-
-		}
-
-	},
-*/
 	// Previously filterSelected
 /* MKD: REFACTOR THIS TO USE AXISGROUP
 	_filterDisplay: function(){
@@ -2974,7 +2903,7 @@ _buildRenderedMatrix: function() {
 			cell_rects[0][i].parentNode.appendChild(cell_rects[0][i]);
 		}
 		var data_rects = self.state.svg.selectAll("rect.cells")
-			.filter(function (d) { return d.model_id == curr_rect.__data__.model_id;});
+			.filter(function (d) { return d.target_id == curr_rect.__data__.target_id;});
 		for (var j in data_rects[0]){
 			data_rects[0][j].parentNode.appendChild(data_rects[0][j]);
 		}
@@ -3149,7 +3078,7 @@ _buildRenderedMatrix: function() {
 		var self = this;
 		var list = [];
 		var xWidth = self.state.widthOfSingleCell;
-
+		var y =0;
 		if (!this.state.invertAxis) {
 			//list = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
 			list = self.state.xAxisRender.getRenderedItemIDs();
@@ -3180,10 +3109,12 @@ _buildRenderedMatrix: function() {
 
 			if (this.state.invertAxis){
 				this.state.svg.selectAll("text.scores").attr("y", function(d) {
-					return self._getAxisDataPosition(d) + 5;  // self._getAxisData(d).ypos + 5;
+					//return self._getAxisDataPosition(d) + 5;  // self._getAxisData(d).ypos + 5;
+						return y += 13;
 				});
-				this.state.svg.selectAll("text.scores").attr("x", 0);
-				this.state.svg.selectAll("text.scores").attr("transform", "translate(" + (this.state.textWidth + 20) + "," + 40 + ")");
+				this.state.svg.selectAll("text.scores").attr("x", 230);  //0
+				//this.state.svg.selectAll("text.scores").attr("transform", "translate(" + (this.state.textWidth + 20) + "," + 40 + ")");
+				this.state.svg.selectAll("text.scores").attr("transform","translate(0, " + (this.state.yModelRegion+5) + ")");
 			} else {
 				this.state.svg.selectAll("text.scores").attr("x",function(d,i){return i * xWidth;});
 				this.state.svg.selectAll("text.scores").attr("y", 0);
@@ -3553,7 +3484,11 @@ _buildRenderedMatrix: function() {
 		$( "#sortphenotypes" ).change(function(d) {
 			self.state.selectedSort = self.state.phenotypeSort[d.target.selectedIndex];
 			// sort source with default sorting type
-			self.state.yAxisRender.sort(self.state.selectedSort); 
+			if (self.state.invertAxis){
+				self.state.xAxisRender.sort(self.state.selectedSort); 
+			} else {
+				self.state.yAxisRender.sort(self.state.selectedSort); 
+			}
 			self._resetSelections("sortphenotypes");
 			self._processDisplay();
 		});
@@ -3663,9 +3598,9 @@ _buildRenderedMatrix: function() {
 			.attr("id", function(d) {
 				return d.id;
 			})
-			.attr("x", 208)
+			.attr("x", 208)    // MAGIC NUM
 			.attr("y", function(d) {				
-				  y += 13;  //self.state.yAxisRender.getOrdinalPosition(d.id)
+				  y += 13;  
 				return y;  // 		self._getAxisData(d).ypos + 10;
 			})
 			.on("mouseover", function(d) {
@@ -4249,7 +4184,7 @@ _buildRenderedMatrix: function() {
 			this._rebuildModelHash();
 
 			this.state.modelLength = this.state.modelListHash.size();
-			this._setAxisValues();
+//			this._setAxisValues();
 
 			console.log("updating display...");
 			this._processDisplay();
