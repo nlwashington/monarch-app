@@ -393,17 +393,21 @@ DataManager.prototype = {
 			match - matching object
 	*/
 	cellPointMatch: function (key1, key2, species) {
-		var match;
+		var match, rec = null;
 		for (var i=0; i < this.cellData[species].length; i++) {
 			var cellIdSource = this.cellData[species][i].source_id;
 			var cellIdTarget = this.cellData[species][i].target_id;
 			if ( cellIdSource== key1 && cellIdTarget == key2) {				
-				match = this.cellData[species][i];
+				rec = this.cellData[species][i];
 				break;
 			} else if (cellIdSource == key2 && cellIdTarget == key1) {
-				match = this.cellData[species][i];
+				rec = this.cellData[species][i];
 				break;
 			}
+		}
+		if (rec != null) {
+			// this makes a copy of records, otherwises it would return by reference
+			match = $.extend({}, rec);  
 		}
 		return match;
 	},
@@ -661,7 +665,7 @@ DataManager.prototype = {
 							this.source[index].sum += parseFloat(curr_row.lcs.IC);
 						}
 
-						// building cellDataHash;  maybe name 'id' to something better (i.e., target_id)
+						// building cell data points
 						dataVals = {"source_id": sourceID_a, "target_id": targetID, "value": lcs, 
 									"subsumer_label": curr_row.lcs.label, "subsumer_id": currID_lcs, 
 									"subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, 
@@ -685,7 +689,7 @@ DataManager.prototype = {
 
 	*/
 	reinitialize: function(species) {
-
+		console.log("reinitialize dataManager...");
 		this.source = [];
 		this.target = [];
 		this.cellData = [];
@@ -702,7 +706,8 @@ DataManager.prototype = {
 	$.widget("ui.phenogrid", {
 		// core commit. Not changeable by options. 
 	config: {
-		scriptpath : $('script[src]').last().attr('src').split('?')[0].split('/').slice(0, -1).join('/')+'/',
+		//scriptpath : $('script[src]').last().attr('src').split('?')[0].split('/').slice(0, -1).join('/')+'/',
+		scriptpath : $('script[src*="phenogrid"]').last().attr('src').split('?')[0].split('/').slice(0, -1).join('/')+'/',
 		colorDomains: [0, 0.2, 0.4, 0.6, 0.8, 1],
 		colorRanges: [['rgb(229,229,229)','rgb(164,214,212)','rgb(68,162,147)','rgb(97,142,153)','rgb(66,139,202)','rgb(25,59,143)'],
 			['rgb(252,248,227)','rgb(249,205,184)','rgb(234,118,59)','rgb(221,56,53)','rgb(181,92,85)','rgb(70,19,19)'],
@@ -796,12 +801,9 @@ DataManager.prototype = {
 	*/
 	_reset: function(type) {
 
-		// MKD: datamanager should be reset
 		// LEAVE UNTIL OR MOVING HASH CONSTRUCTION EARLIER
 		if (type == 'organism' || type == 'axisflip' || typeof(type) == 'undefined') {
-//			this.state.modelData = [];   //MKD:refactor
-//			this.state.modelList = [];   //MKD:refactor
-			this.state.expandedHash = new Hashtable();
+			this.state.expandedHash = new Hashtable();  //MKD:refactor to array
 		}
 
 		// target species name might be provided as a name or as taxon. Make sure that we translate to name
@@ -809,8 +811,6 @@ DataManager.prototype = {
 
 		this.state.yAxisMax = 0;
 		this.state.yoffset = this.state.baseYOffset;
-
-		this.state.modelName = "";
 		this.state.h = this.config.h;
 	},
 
@@ -882,6 +882,7 @@ DataManager.prototype = {
 		 */
 
 		for (var sname in self.state.targetSpeciesByName) {
+			if(!self.state.targetSpeciesByName.hasOwnProperty(sname)){break;}
 			// we've found a matching name.
 			if (name == sname) {
 				found = true;
@@ -1134,7 +1135,7 @@ DataManager.prototype = {
 			this._createCellRects();
 			this._createSpeciesBorderOutline();	
 			
-			this._createOverviewSection();
+//			this._createOverviewSection();
 
 			var height = rectHeight + 40;
 
@@ -1603,7 +1604,9 @@ DataManager.prototype = {
 	// builds the rendered matrix
 	_buildRenderedMatrix: function() {
 		var newFilteredCell = [];
+		this.state.filteredCellData = [];
 
+		console.log ("Rendering the matrix...");
 		if ( this.state.targetSpeciesName != "Overview") {
 			var sourceList,targetList; 
 			sourceList = this.state.yAxisRender.getRenderedItemIDs();
@@ -1631,8 +1634,8 @@ DataManager.prototype = {
 							source = cellMatch.source_id;
 							target = cellMatch.target_id;
 			 			}
-	 					xPos = this.state.xAxisRender.getRelativePosition(target);
-						yPos = this.state.yAxisRender.getRelativePosition(source);
+			 			yPos = this.state.yAxisRender.getRelativePosition(source);
+	 					xPos = this.state.xAxisRender.getRelativePosition(target);						
 
 			 			if ( xPos > -1 && yPos > -1) {
 				 			var coords = {xpos: xPos, ypos: yPos};
@@ -2245,7 +2248,7 @@ DataManager.prototype = {
 		var dataType = self._getIDType(curr_data);
 		var label, alabels, shortTxt, shrinkSize;
 		if (dataType === "Phenotype"){
-			if (this.state.invertAxis){
+			if (!this.state.invertAxis){
 				alabels = this.state.svg.selectAll("text.a_text");
 				shrinkSize = self.state.textLength;
 			} else {
@@ -2253,11 +2256,11 @@ DataManager.prototype = {
 				shrinkSize = self.state.labelCharDisplayCount;
 			}
 		} else if (dataType === "Model"){
-			if (this.state.invertAxis){
-				alabels = this.state.svg.selectAll("text.model_label");
+			if (!this.state.invertAxis){
+				alabels = this.state.svg.selectAll("text.model_label"); 
 				shrinkSize = self.state.labelCharDisplayCount;
 			} else {
-				alabels = this.state.svg.selectAll("text.a_text");
+				alabels = this.state.svg.selectAll("text.a_text"); 
 				shrinkSize = self.state.textLength;
 			}
 		} else {
@@ -2276,10 +2279,15 @@ DataManager.prototype = {
 		}
 
 		for (var j in alabels[0]){
-			label = this._getAxisData(alabels[0][j].id).label;
-			shortTxt = this._getShortLabel(label,shrinkSize);
-			if (alabels[0][j].innerHTML == shortTxt){	
-				alabels[0][j].style.fill = this._getExpandStyling(alabels[0][j].id); //"black";
+			var obj = this._getAxisData(alabels[0][j].id);
+
+			label = obj.label;
+
+			if (label != null && typeof(label) !== 'undefined') {
+				shortTxt = this._getShortLabel(label,shrinkSize);
+				if (alabels[0][j].innerHTML == shortTxt){	
+					alabels[0][j].style.fill = this._getExpandStyling(alabels[0][j].id); //"black";
+				}
 			}
 		}
 	},
@@ -2463,7 +2471,7 @@ DataManager.prototype = {
 				//alabels.style("fill", "black");
 				alabels.style("fill", this._getExpandStyling(data));
 				
-				this._deselectMatching(data);
+				//this._deselectMatching(data);
 			}
 		}
 		//stickytooltip.closetooltip();
@@ -2628,7 +2636,7 @@ DataManager.prototype = {
 	},
 
 	_showCellData: function(d, obj) {
-		var retData, prefix, modelLabel, phenoLabel;
+		var retData, prefix, targetLabel, sourceLabel;
 
 		var yInfo = this._getAxisData(d.source_id); //this._getAxisData(d.yID); 
 		var xInfo = this._getAxisData(d.target_id);
@@ -2636,36 +2644,20 @@ DataManager.prototype = {
 		var species = fullInfo.species;
 		var taxon = fullInfo.taxon;
 
-		//[vaa12] Could be done in a more sophisticated function, but this works and removed dependancy on invertAxis
-		//MKD: DATA ACCESS SHOULD GO THROUGH DM
-		// if (this.state.phenotypeListHash.containsKey(d.xID)){
-		// 	phenoLabel = this.state.phenotypeListHash.get(d.xID).label;
-		// } else if (this.state.phenotypeListHash.containsKey(d.yID)){
-		// 	phenoLabel = this.state.phenotypeListHash.get(d.yID).label;
-		// } else {
-		// 	phenoLabel = null;
-		// }
 		if (this.state.dataManager.contains("source", d.target_id)){
-			phenoLabel = this.state.dataManager.getElement("source", d.target_id).label;
+			sourceLabel = this.state.dataManager.getElement("source", d.target_id).label;
 		} else if (this.state.dataManager.contains("source", d.source_id)){
-			phenoLabel = this.state.dataManager.getElement("source", d.source_id).label;
+			sourceLabel = this.state.dataManager.getElement("source", d.source_id).label;
 		} else {
-			phenoLabel = null;
+			sourceLabel = null;
 		}
 
-		// if (this.state.modelListHash.containsKey(d.xID)){
-		// 	modelLabel = this.state.modelListHash.get(d.xID).label;
-		// } else if (this.state.modelListHash.containsKey(d.yID)){
-		// 	modelLabel = this.state.modelListHash.get(d.yID).label;
-		// } else {
-		// 	modelLabel = null;
-		// }
 		if (this.state.dataManager.contains("target", d.target_id)) {
-			modelLabel = this.state.dataManager.getElement("target", d.target_id).label;
+			targetLabel = this.state.dataManager.getElement("target", d.target_id).label;
 		} else if (this.state.dataManager.contains("target", d.source_id)) {
-			modelLabel = this.state.dataManager.getElement("target", d.source_id).label;
+			targetLabel = this.state.dataManager.getElement("target", d.source_id).label;
 		} else {
-			modelLabel = null;
+			targetLabel = null;
 		}
 
 
@@ -2695,10 +2687,10 @@ DataManager.prototype = {
 		// If the selected calculation isn't percentage based (aka similarity) make it a percentage
 		if (this.state.selectedCalculation != 2) {suffix = '%';}
 
-		retData = "<strong>Query: </strong> " + phenoLabel + formatScore(fullInfo.IC.toFixed(2)) +
+		retData = "<strong>Query: </strong> " + sourceLabel + formatScore(fullInfo.IC.toFixed(2)) +
 			"<br/><strong>Match: </strong> " + d.b_label + formatScore(d.b_IC.toFixed(2)) +
 			"<br/><strong>Common: </strong> " + d.subsumer_label + formatScore(d.subsumer_IC.toFixed(2)) +
-			"<br/><strong>" + this._capitalizeString(fullInfo.type)+": </strong> " + modelLabel +
+			"<br/><strong>" + this._capitalizeString(fullInfo.type)+": </strong> " + targetLabel +
 			"<br/><strong>" + prefix + ":</strong> " + d.value[this.state.selectedCalculation].toFixed(2) + suffix +
 			"<br/><strong>Species: </strong> " + species + " (" + taxon + ")";
 		this._updateDetailSection(retData, this._getXYPos(obj));
@@ -3112,7 +3104,7 @@ DataManager.prototype = {
 					//return self._getAxisDataPosition(d) + 5;  // self._getAxisData(d).ypos + 5;
 						return y += 13;
 				});
-				this.state.svg.selectAll("text.scores").attr("x", 230);  //0
+				this.state.svg.selectAll("text.scores").attr("x", 230);  // MKD:
 				//this.state.svg.selectAll("text.scores").attr("transform", "translate(" + (this.state.textWidth + 20) + "," + 40 + ")");
 				this.state.svg.selectAll("text.scores").attr("transform","translate(0, " + (this.state.yModelRegion+5) + ")");
 			} else {
@@ -3384,7 +3376,7 @@ DataManager.prototype = {
 			.attr("rx",8)
 			.attr("ry",8)
 			.attr("width", 180)
-			.attr("height", 15)
+			.attr("height", 10) // 15
 			.attr("fill", "url(#gradient_" + i + ")");
 
 		// text is 20 below gradient
@@ -3497,6 +3489,7 @@ DataManager.prototype = {
 		    self.state.invertAxis = !self.state.invertAxis;
 		    self._resetSelections("axisflip");
 		    self._setAxisRenderers();
+		    //self._createAxisRenderingGroups();
 		    self._processDisplay();
 
 		});
