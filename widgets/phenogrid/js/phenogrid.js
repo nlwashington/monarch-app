@@ -51,6 +51,10 @@
 var url = document.URL;
 
 /*
+	Package: axisgroup.js
+
+	Namespace: phenogrid.axisgroup
+
  	Constructor: AxisGroup 
 		an object routine that will wrap data required for axis rendering
 
@@ -59,7 +63,7 @@ var url = document.URL;
 		renderEndPos - render end position
 		items - item list to use for the axis display 	
 */
-var AxisGroup = function(renderStartPos, renderEndPos,items)  {
+var AxisGroup = function(renderStartPos, renderEndPos, items)  {
 	this.renderStartPos = renderStartPos;
     this.renderEndPos = renderEndPos;
     this.items = items;
@@ -71,6 +75,28 @@ var AxisGroup = function(renderStartPos, renderEndPos,items)  {
 */
 AxisGroup.prototype = {
 	constructor: AxisGroup,
+
+	/*
+		Function: applyFilter
+			method to apply a filter (species) to the axisgroup subset of data. used largely for rendering
+		
+		Parameters:
+			species - species name
+	
+	applyFilter: function(species) {
+		if (typeof(species) !== 'undefined') {
+			this.species = species;
+			this.renderedItems = [];
+			for(var i in this.items) {
+				var spec = this.items[i].species;
+				if (spec == this.species) { 
+					this.renderedItems.push(this.items[i]);
+				} 
+			}
+    	}
+	},
+	*/
+
 	/**
 	* controls the start position of the AxisGroup rendering 
 	*/
@@ -85,54 +111,71 @@ AxisGroup.prototype = {
 	 	set: function(val) { this.renderEndPos = val;}
 	},
 	/*
-		Function: getRenderedSize
-			provides the size of subset group range to render
-		
+		Function: itemAt
+			gets a single item at a specified index within the rendered axisgroup 
+
+		Parameters:
+			index
+
 		Return:
-			size of group range
+			items
 	*/
-	getRenderedSize: function() {
-		return (this.renderEndPos - this.renderStartPos);
+	itemAt: function(index) {
+		var renderedList = this.getItems();
+		var item = renderedList[index];
+    	return item;
 	},
 	/*
-		Function: getRenderedItems
+		Function: get
+			gets a single item element from the axis 
+	
+		Parameters:
+			key
+		Returns:
+			item element
+	*/	
+	get: function(key) {
+		var i = 0, found = false, rec = null;
+		while (i < this.items.length && !found) {
+			rec = this.items[i];			
+			if (rec.id == key) {
+				found = true;
+				return rec;
+			}
+			i++;
+		}
+		return null;
+	},
+	/*
+		Function: getItems
 			provides the subset group of items to be rendered
 
 		Return:
 			array of objects of items
 	*/	
-	getRenderedItems: function() {
+	getItems: function() {
+		// if (typeof(this.renderedItems) !== 'undefined' && this.renderedItems != null) {
+		// 	return this.renderedItems.slice(this.renderStartPos, this.renderEndPos);
+		// } 
 		return this.items.slice(this.renderStartPos, this.renderEndPos);
 	},
+	
 	/*
-		Function: getRenderedItem
-			gets an item within the rendered axisgroup with a specified index
-
-		Return:
-			items
-	*/
-	getRenderedItem: function(index) {
-		var renderedList = this.getRenderedItems();
-		var item = renderedList[index];
-    	return item;
-	},
-
-	/*
-		Function: getRenderedItemIDs		
+		Function: getItemIDs		
 			gets list of all rendered item IDs within the axisgroup
 
 		Return:
 			array list of rendered item IDs
 	*/	
-	getRenderedItemIDs: function() {
-		var renderedList = this.getRenderedItems();
+	getItemIDs: function() {
+		var renderedList = this.getItems();
 		var ids = renderedList.map(function(obj) {
 				return obj.id;
 			});
 		return ids;
 	},
 	/*
-		Function: getRelativePosition
+		Function: position
 			gets the relative position a key within the rendered or viewable range
 	
 		Parameters:
@@ -141,8 +184,8 @@ AxisGroup.prototype = {
 		Return:
 			index value, -1 if item not found within rendered range
 	*/
-	getRelativePosition: function(key) {
-		var renderedList = this.getRenderedItems();
+	position: function(key) {
+		var renderedList = this.getItems();
 		var index = 0, found = false, rec = null;
 		while (index < renderedList.length && !found) {
 			rec = renderedList[index];			
@@ -154,23 +197,6 @@ AxisGroup.prototype = {
 		}
 		return -1;
 	},
-	/*
-		Function: getRelativeStartPosition
-			gets the relative index of the starting position within the rendered or viewable range
-	
-		Parameters:
-			none
-
-		Return:
-			index value, -1 if no starting item was found within rendered range
-	*/	
-	getRelativeStartPostion: function() {
-		var itm = this.getRenderedItem(0);
-		if (itm != null) {
-			return this.getAbsolutePosition(itm.id);
-		}
-		return -1;
-	}, 	
 	/*
 		Function: getAbsolutePosition
 			gets the absolute position in the axis for a given key
@@ -194,50 +220,27 @@ AxisGroup.prototype = {
 		return -1;
 	},
 
-
 	/*
 		Function: size
+			provides the size of only the rendered portion of the axisgroup
+
+		Return:
+			size
+	*/	
+	size: function() {
+		return (this.renderEndPos - this.renderStartPos);
+	},
+	/*
+		Function: groupSize
 			provides the size of the entire axis
 
 		Return:
 			size of axis
 	*/	
-	size: function() {
+	groupSize: function() {
     	return this.items.length;
 	},
-	/*
-		Function: getItems
-			gets all items within the axisgroup
 
-		Return:
-			array of items
-	*/
-	getItems: function() {
-    	return this.items;
-	},
-
-	/*
-		Function: get
-			gets a single item element from the axis 
-	
-		Parameters:
-			key
-
-		Returns:
-			item element
-	*/	
-	get: function(key) {
-		var i = 0, found = false, rec = null;
-		while (i < this.items.length && !found) {
-			rec = this.items[i];			
-			if (rec.id == key) {
-				found = true;
-				return rec;
-			}
-			i++;
-		}
-		return null;
-	},
 	/*
 		Function: contains
 			determines if a item element is contained within the axis 
@@ -349,7 +352,9 @@ DataManager.prototype = {
 			boolean
 	*/	
 	isInitialized: function() {
-		if (this.source.length > 0 && this.target.length > 0) {
+		var targetSize = Object.keys(this.target).length;
+
+		if (this.source.length > 0 && targetSize > 0) {
 			this.initialized = true;
 		} else {
 			this.initialized = false;
@@ -607,6 +612,8 @@ DataManager.prototype = {
 				this.parent.state.maxICScore = data.metadata.maxMaxIC;
 			}
 			this.cellData[species] = [];
+			this.target[species] = [];
+
 			var variantNum = 0;
 			for (var idx in data.b) {
 				var item = data.b[idx];
@@ -630,7 +637,7 @@ DataManager.prototype = {
 				// build the target list
 				var hashData = {"id":targetID, "label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
 								"rank": parseInt(idx), "score": item.score.score};   //"pos": parseInt(idx),
-				this.target.push(hashData);
+				this.target[species].push(hashData);
 
 				var matches = data.b[idx].matches;
 				var curr_row, lcs, cellPoint, dataVals;
@@ -1071,10 +1078,10 @@ DataManager.prototype = {
 			this.state.sourceDisplayLimit = this.state.dataManager.source.length;
 		}
 
-		if (this.state.dataManager.target.length > this.state.dataDisplayCount) {
+		if (this.state.dataManager.target[self.state.targetSpeciesName].length > this.state.dataDisplayCount) {
 			this.state.targetDisplayLimit = this.state.dataDisplayCount;
 		} else {
-			this.state.targetDisplayLimit = this.state.dataManager.target.length;
+			this.state.targetDisplayLimit = this.state.dataManager.target[self.state.targetSpeciesName].length;
 		}
 
 
@@ -1087,7 +1094,9 @@ DataManager.prototype = {
 		this.state.sourceAxis.sort(this.state.selectedSort); 
     
     	this.state.targetAxis =  new AxisGroup(0, self.state.targetDisplayLimit,
-					   this.state.dataManager.target);
+					   this.state.dataManager.target[self.state.targetSpeciesName]);
+//    	this.state.targetAxis.applyFilter(self.state.targetSpeciesName);
+
     	self._setAxisRenderers();
 	},
 
@@ -1111,7 +1120,7 @@ DataManager.prototype = {
 
 	_reDraw: function() {
 		if (this.state.dataManager.isInitialized()) {
-			var displayRangeCount = this.state.yAxisRender.getRenderedSize();
+			var displayRangeCount = this.state.yAxisRender.size();
 
 			this._setComparisonType();
 			this._initCanvas();
@@ -1135,7 +1144,7 @@ DataManager.prototype = {
 			this._createCellRects();
 			this._createSpeciesBorderOutline();	
 			
-//			this._createOverviewSection();
+			this._createOverviewSection();
 
 			var height = rectHeight + 40;
 
@@ -1222,8 +1231,8 @@ DataManager.prototype = {
 		var mHeight = self.state.heightOfSingleCell;
 		// create a blank grid to match the size of the phenogrid grid
 		var data = [];
-   	    var rowCt = self.state.yAxisRender.getRenderedSize();
-   	    var colCt = self.state.xAxisRender.getRenderedSize();
+   	    var rowCt = self.state.yAxisRender.size();
+   	    var colCt = self.state.xAxisRender.size();
 	     
 
 		for (var k = 0; k < rowCt; k++){
@@ -1256,15 +1265,15 @@ DataManager.prototype = {
 	    var xCount = self.state.xAxisRender.size();
 
 	    // get the rendered starting point on axis
-		var startYIdx = self.state.yAxisRender.getRelativeStartPostion();    // this.state.currYIdx - yCount;
-		var startXIdx = self.state.xAxisRender.getRelativeStartPostion();    // this.state.currXIdx - xCount;
+		var startYIdx = self.state.yAxisRender.renderStartPos;    // this.state.currYIdx - yCount;
+		var startXIdx = self.state.xAxisRender.renderStartPos;    // this.state.currXIdx - xCount;
 
 		// add-ons for stroke size on view box. Preferably even numbers
 		var linePad = 2;
 		var viewPadding = linePad * 2 + 2;
 
 		// overview region is offset by xTranslation, yTranslation
-		var xTranslation = 42;
+		var xTranslation = 42; 
 		var yTranslation = 30;
 
 		// these translations from the top-left of the rectangular region give the absolute coordinates
@@ -1273,7 +1282,7 @@ DataManager.prototype = {
 
 		// size of the entire region - it is a square
 		var overviewRegionSize = self.state.globalViewSize;
-		if (this.state.yAxisRender.getRenderedSize() < yCount) {
+		if (this.state.yAxisRender.groupSize() < yCount) {
 			overviewRegionSize = self.state.reducedGlobalViewSize;
 		}
 
@@ -1288,7 +1297,9 @@ DataManager.prototype = {
 
 		// add the items using smaller rects
 		//var cellData = self._mergeHashEntries(self.state.cellDataHash);
-		var data = self.state.dataManager.cellData;
+		// MKD: need to add something here to handle over
+		var data = self.state.dataManager.cellData[self.state.targetSpeciesName];
+		//var data = self.state.filteredCellData;
 
 		var cell_rects = this.state.svg.selectAll(".mini_cells")
 			.data(data, function(d) {return d.source_id + d.target;});   //d.yID + d.xID;});
@@ -1296,30 +1307,38 @@ DataManager.prototype = {
 		overviewY++;
 		var cellRectTransform = "translate(" + overviewX +	"," + overviewY + ")";
 
-	        var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
+	    var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
 
 		cell_rects.enter()
 			.append("rect")
 			.attr("transform",cellRectTransform)
 			.attr("class", "mini_cell")
-			.attr("y", function(d, i) { return self.state.smallYScale(d.source_id) + linePad / 2;})  // yID
-			.attr("x", function(d) { return self.state.smallXScale(d.target_id) + linePad / 2;})  //xID
+			.attr("y", function(d, i) { 
+				var yid = d.source_id;
+				var yscale = self.state.smallYScale(yid);
+				var y = yscale + linePad / 2;
+				return y;})  // yID
+			.attr("x", function(d) { 
+				var xid = d.target_id;
+				var xscale = self.state.smallXScale(xid);
+				var x =  xscale + linePad / 2; 
+				return x;})  // xID
 			.attr("width", linePad)
 			.attr("height", linePad)
 			.attr("fill", function(d) {
 				var colorID;
 			        colorID=d[colorSelector];
-				return self._getColorForCellValue(self,
-								   self._getAxisData(colorID).species,
-								   d.value[self.state.selectedCalculation]);
+			    var spec = self._getAxisData(colorID).species;
+			    var val = d.value[self.state.selectedCalculation];
+				return self._getColorForCellValue(self, spec, val);
 			});
 
-		var yRenderedSize = this.state.yAxisRender.getRenderedSize();
-		var xRenderedSize = this.state.xAxisRender.getRenderedSize();		
-     	var lastYId = this.state.yAxisRender.getRenderedItem(yRenderedSize - 1).id; // self._returnID(this.state.yAxisRender.getItems(),yCount - 1);
-	    var lastXId = this.state.xAxisRender.getRenderedItem(xRenderedSize - 1).id; //self._returnID(this.state.xAxisRender.getItems(),xCount - 1);
-   	    var startYId = this.state.yAxisRender.getRenderedItem(startYIdx).id;   //self._returnID(this.state.yAxisRender.getItems(),startYIdx);
-	    var startXId = this.state.xAxisRender.getRenderedItem(startXIdx).id; //self._returnID(this.state.xAxisRender.getItems(),startXIdx);
+		var yRenderedSize = this.state.yAxisRender.size();
+		var xRenderedSize = this.state.xAxisRender.size();		
+     	var lastYId = this.state.yAxisRender.itemAt(yRenderedSize - 1).id; // self._returnID(this.state.yAxisRender.getItems(),yCount - 1);
+	    var lastXId = this.state.xAxisRender.itemAt(xRenderedSize - 1).id; //self._returnID(this.state.xAxisRender.getItems(),xCount - 1);
+   	    var startYId = this.state.yAxisRender.itemAt(startYIdx).id;   //self._returnID(this.state.yAxisRender.getItems(),startYIdx);
+	    var startXId = this.state.xAxisRender.itemAt(startXIdx).id; //self._returnID(this.state.xAxisRender.getItems(),startXIdx);
 
 		var selectRectX = self.state.smallXScale(startXId);
 		var selectRectY = self.state.smallYScale(startYId);
@@ -1509,18 +1528,18 @@ DataManager.prototype = {
 	_createSmallScales: function(overviewRegionSize) {
 		var self = this;
 		var sortDataList = [];
-		var mods = [];
-   	        sortDataList = self._getSortedIDList(self.state.yAxisRender.getRenderedItemIDs());
-
-	    mods = self._getSortedIDList(self.state.xAxisRender.getRenderedItemIDs());
+		var targ = [];
+   	    //sortDataList = self._getSortedIDList(self.state.yAxisRender.getItemIDs());
+   	    sortDataList = self.state.yAxisRender.getItemIDs();
+	    targ = self.state.xAxisRender.getItemIDs();
 
 		this.state.smallYScale = d3.scale.ordinal()
 			.domain(sortDataList.map(function (d) {return d; }))
 			.rangePoints([0,overviewRegionSize]);
 
-		var modids = mods.map(function (d) {return d; });
+		var targids = targ.map(function (d) {return d; });
 		this.state.smallXScale = d3.scale.ordinal()
-			.domain(modids)
+			.domain(targids)
 			.rangePoints([0,overviewRegionSize]);
 	},
 
@@ -1609,8 +1628,8 @@ DataManager.prototype = {
 		console.log ("Rendering the matrix...");
 		if ( this.state.targetSpeciesName != "Overview") {
 			var sourceList,targetList; 
-			sourceList = this.state.yAxisRender.getRenderedItemIDs();
-			targetList = this.state.xAxisRender.getRenderedItemIDs();
+			sourceList = this.state.yAxisRender.getItemIDs();
+			targetList = this.state.xAxisRender.getItemIDs();
 
 			// loop through the rendered source/target to build matrix
 			for(var s=0; s < sourceList.length; s++) {
@@ -1620,13 +1639,6 @@ DataManager.prototype = {
 					if (typeof (cellMatch) !== 'undefined') {
 						var xPos, yPos, source, target;
 
-						// if (this.state.invertAxis){
-						// 	xPos = this.state.xAxisRender.getRelativePosition(cellMatch.source_id);
-						// 	yPos = this.state.yAxisRender.getRelativePosition(cellMatch.target_id);												
-						// } else {
-						// 	xPos = this.state.xAxisRender.getRelativePosition(cellMatch.target_id);
-						// 	yPos = this.state.yAxisRender.getRelativePosition(cellMatch.source_id);
-			 		// 	}
 						if (this.state.invertAxis){
 							source = cellMatch.target_id;
 							target = cellMatch.source_id;
@@ -1634,8 +1646,8 @@ DataManager.prototype = {
 							source = cellMatch.source_id;
 							target = cellMatch.target_id;
 			 			}
-			 			yPos = this.state.yAxisRender.getRelativePosition(source);
-	 					xPos = this.state.xAxisRender.getRelativePosition(target);						
+			 			yPos = this.state.yAxisRender.position(source);
+	 					xPos = this.state.xAxisRender.position(target);						
 
 			 			if ( xPos > -1 && yPos > -1) {
 				 			var coords = {xpos: xPos, ypos: yPos};
@@ -1663,9 +1675,9 @@ DataManager.prototype = {
 		var axis_idx = 0;
 		var sortedYArray = [];
 
-	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.getRenderedSize();
+	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.size();
 		var	displayYLimiter = this.state.currYIdx;
-	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.getRenderedSize();
+	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.size();
 		var	displayXLimiter = this.state.currXIdx;
 
 	    this.state.filteredYAxis = self._filterListHash(this.state.yAxisRender.getItems(),
@@ -1693,6 +1705,7 @@ DataManager.prototype = {
 */
 	// given a list of phenotypes, find the top n models
 	// I may need to rename this method "getModelData". It should extract the models and reformat the data 
+// MKD: this is will be refactored out
 	_loadData: function() {
 
 		/*
@@ -1749,7 +1762,7 @@ DataManager.prototype = {
 
 		this.state.hpoCacheBuilt = true;
 	},
-
+/*
 // MKD: will be refactored to DM
 	_loadSpeciesData: function(speciesName,limit) {
 		var phenotypeList = this.state.phenotypeData;   // in DM NOW
@@ -1772,7 +1785,7 @@ DataManager.prototype = {
 		}
 		this.state.data[speciesName] = res;
 	},
-
+*/
     /*
 	 * Make sure there are limit items in res --
 	 * If we don't have enough, add some dummy items in. 
@@ -1791,7 +1804,8 @@ DataManager.prototype = {
 		}
 		return res;
 	},
-
+/*
+// MKD: this is will be refactored out
 	_loadOverviewData: function() {
 		var limit = this.state.multiOrganismCt;
 		for (var i in this.state.targetSpeciesList) {
@@ -1811,7 +1825,7 @@ DataManager.prototype = {
 			}
 		}
 	},
-
+*/
 	// Different methods of based on the selectedCalculationMethod
 	_normalizeIC: function(datarow){
 		var aIC = datarow.a.IC;
@@ -1843,14 +1857,14 @@ DataManager.prototype = {
 
 	// Will update the position of the phenotype based on sort
 	//MKD: is this needed???
-	_updatePhenoPos: function(key,rank) {
+/*	_updatePhenoPos: function(key,rank) {
 		//var values = this.state.phenotypeListHash.get(key);
 		var values = this.state.dataManager.source.get(key);
 		values.pos = rank;
 		//this.state.phenotypeListHash.put(key,values);
 		this.state.dataManager.source.put(key,values);
 	},
-
+*/
 	// Returns axis data from a ID of models or phenotypes
 	_getAxisData: function(key) {
 	    if (this.state.yAxisRender.contains(key)){
@@ -1863,9 +1877,9 @@ DataManager.prototype = {
 
 	_getAxisDataPosition: function(key) {
 	    if (this.state.yAxisRender.contains(key)){
-		    return this.state.yAxisRender.getRelativePosition(key);
+		    return this.state.yAxisRender.position(key);
 		} else if (this.state.xAxisRender.contains(key)){
-		    return this.state.xAxisRender.getRelativePosition(key);
+		    return this.state.xAxisRender.position(key);
 		}
 		else { return -1; }
 	},
@@ -1905,58 +1919,25 @@ DataManager.prototype = {
 			},
 			error: function (xhr, errorType, exception) { 
 			// Triggered if an error communicating with server
-				self._displayResult(xhr, errorType, exception);
+
+			switch(xhr.status){
+				case 404:
+				case 500:
+				case 501:
+				case 502:
+				case 503:
+				case 504:
+				case 505:
+				default:
+					msg = "We're having some problems. Please try again soon.";
+					break;
+				case 0: 
+					msg = "Please check your network connection.";
+					break;
+				}
 			} 
 		});
 		return res;
-	},
-
-	_displayResult: function(xhr, errorType, exception){
-		var msg;
-
-		switch(xhr.status){
-			case 404:
-			case 500:
-			case 501:
-			case 502:
-			case 503:
-			case 504:
-			case 505:
-			default:
-				msg = "We're having some problems. Please try again soon.";
-				break;
-			case 0: 
-				msg = "Please check your network connection.";
-				break;
-		}
-
-		// We need a better shared error handling here instead of displaying empty vis
-		//if (xhr.status === 0) {
-		//	msg = 'Not connected.\n Verify Network.';
-		//} else if (xhr.status == 404) {
-		//	msg = 'The requested page was not found.';
-		//} else if (xhr.status == 500) {
-		//	msg = 'Due to an Internal Server Error, no phenotype data was retrieved.';
-		//} else if (xhr.status == 501) {
-		//	msg = 'The server either does not recognize the request method, or it lacks the ability to fulfill the request';
-		//} else if (xhr.status == 502) {
-		//	msg = 'The server was acting as a gateway or proxy and received an invalid response from the upstream server.';
-		//} else if (xhr.status == 503) {
-		//	msg = 'The server is currently unavailable (because it is overloaded or down for maintenance).';
-		//} else if (xhr.status == 504) {
-		//	msg = 'The server was acting as a gateway or proxy and did not receive a timely response from the upstream server.';
-		//} else if (xhr.status == 505) {
-		//	msg = 'The server does not support the HTTP protocol version used in the request.';
-		//} else if (exception === 'parsererror') {
-		//	msg = 'Requested JSON parse failed.';
-		//} else if (exception === 'timeout') {
-		//	msg = 'Time out error.';
-		//} else if (exception === 'abort') {
-		//	msg = 'Ajax request aborted.';
-		//} else {
-		//	msg = 'Uncaught Error.\n' + xhr.responseText;
-		//}
-		//this._createEmptyVisualization(msg);
 	},
 
 	_createColorScale: function() {
@@ -2093,12 +2074,15 @@ DataManager.prototype = {
 		 */
 		var faq	= this.state.svg
 			.append("svg:image")
-			.attr("xlink:href", this.state.scriptpath + "../image/greeninfo30.png")
+//			.attr("xlink:href", this.state.scriptpath + "../image/greeninfo30.png")
 			.attr("x",xoffset+foffset)
 			.attr("id","faqinfo")
 			.attr("width", this.state.faqImgSize)
 			.attr("height",this.state.faqImgSize)
-			.attr("class","faq_img")
+			.attr("font-family","FontAwesome")
+			.attr('font-size', function(d) { return '70px';} )
+			.text(function(d) {return 'test \uf083';})
+			//.attr("class","faq_img")
 			.on("click", function(d) {
 				self._showDialog("faq");
 			});
@@ -2308,7 +2292,7 @@ DataManager.prototype = {
 
 		var self = this;
 	    //var displayCount = self._getYLimit();
-	    var sourceDisplayCount = self.state.yAxisRender.getRenderedSize();
+	    var sourceDisplayCount = self.state.yAxisRender.size();
 		var concept = self._getConceptId(data);
 		//console.log("selecting x item.."+concept);
 		var appearanceOverrides;
@@ -2613,7 +2597,7 @@ DataManager.prototype = {
 		}
 		var wdt = this.state.axis_pos_list[1] + ((this.state.axis_pos_list[2] - this.state.axis_pos_list[1])/2);
 	    //var displayCount = this._getYLimit();
-	    var displayCount = this.state.yAxisRender.getRenderedSize();
+	    var displayCount = this.state.yAxisRender.size();
 		var hgt = displayCount * 10 + this.state.yoffset;
 		var yv, wv;
 
@@ -2826,8 +2810,8 @@ DataManager.prototype = {
 		var hwidthAndGap = self.state.widthOfSingleCell;
 		var totCt = 0;
 		var parCt = 0;
-	    var displayCount = self.state.yAxisRender.getRenderedSize();
-	    var displayCountX = self.state.xAxisRender.getRenderedSize();
+	    var displayCount = self.state.yAxisRender.size();
+	    var displayCountX = self.state.xAxisRender.size();
 
 		// Have temporarly until fix for below during Axis Flip
 		if (self.state.targetSpeciesName == "Overview"){
@@ -2904,13 +2888,13 @@ DataManager.prototype = {
 	_highlightIntersection: function(curr_data, obj){
 		var self = this;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getRenderedSize();
+	    var displayCount = self.state.yAxisRender.size();
 		// Highlight Row
 		var highlight_rect = self.state.svg.append("svg:rect")
 			//.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
 			.attr("transform","translate(252, " + (this.state.yModelRegion + 5) + ")")
 			.attr("x", 0) //12
-			.attr("y", function(d) {return self.state.yAxisRender.getRelativePosition(curr_data.source_id) * self.state.heightOfSingleCell; }) //rowid yID
+			.attr("y", function(d) {return self.state.yAxisRender.position(curr_data.source_id) * self.state.heightOfSingleCell; }) //rowid yID
 			.attr("class", "row_accent")
 			.attr("width", this.state.modelWidth - 4)
 			.attr("height", self.state.heightOfSingleCell);
@@ -2971,8 +2955,8 @@ DataManager.prototype = {
 	 * Movecount is an integer and can be either positive or negative
 	 */
 	_updateCells: function(newXPos, newYPos){
-		var xSize = this.state.xAxisRender.getRenderedSize();
-		var ySize = this.state.yAxisRender.getRenderedSize();
+		var xSize = this.state.xAxisRender.size();
+		var ySize = this.state.yAxisRender.size();
 
 		if (newXPos > xSize){
 			this.state.currXIdx = xSize;
@@ -2985,6 +2969,10 @@ DataManager.prototype = {
 		} else {
 			this.state.currYIdx = newYPos;
 		}
+
+		// MKD: somewhere in here set the renderedPos of AxisRenders
+		// this.state.xAxisRender.startPos =
+		// this.state.xAxisRender.endPos =
 
 //		this._filterDisplay();
 		this._clearXLabels();
@@ -3046,7 +3034,7 @@ DataManager.prototype = {
 		var modelLineGap = 30;
 		var lineY = this.state.yoffset + modelLineGap;
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getRenderedSize();
+	    var displayCount = self.state.yAxisRender.size();
 		//this.state.svg.selectAll("path.domain").remove();
 		//this.state.svg.selectAll("text.scores").remove();
 		//this.state.svg.selectAll("#specieslist").remove();
@@ -3073,10 +3061,10 @@ DataManager.prototype = {
 		var y =0;
 		if (!this.state.invertAxis) {
 			//list = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
-			list = self.state.xAxisRender.getRenderedItemIDs();
+			list = self.state.xAxisRender.getItemIDs();
 		} else {
 			//list = self._getSortedIDListStrict(this.state.filteredYAxis.entries());
-			list = self.state.yAxisRender.getRenderedItemIDs();
+			list = self.state.yAxisRender.getItemIDs();
 		}
 
 		this.state.svg.selectAll("text.scores")
@@ -3193,7 +3181,7 @@ DataManager.prototype = {
 		var self = this;
 		this._buildAxisPositionList();
 	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.getRenderedSize();
+	    var displayCount = self.state.yAxisRender.size();
 
 		var gridHeight = displayCount * self.state.heightOfSingleCell + 10;
 		if (gridHeight < self.state.minHeight) {
@@ -3231,7 +3219,7 @@ DataManager.prototype = {
 		this.state.axis_pos_list = [];
 		// calculate width of model section
 		//this.state.modelWidth = this.state.filteredXAxis.size() * this.state.widthOfSingleCell;
-		this.state.modelWidth = this.state.xAxisRender.getRenderedSize() * this.state.widthOfSingleCell;
+		this.state.modelWidth = this.state.xAxisRender.size() * this.state.widthOfSingleCell;
 
 		// add an axis for each ordinal scale found in the data
 		for (var i = 0; i < 3; i++) {
@@ -3258,7 +3246,7 @@ DataManager.prototype = {
 		var mods = [];
 
 		//	mods = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
-		mods = this.state.xAxisRender.getRenderedItemIDs();
+		mods = this.state.xAxisRender.getItemIDs();
 
 		this.state.xScale = d3.scale.ordinal()
 			.domain(mods.map(function (d) {return d; }))
@@ -3573,7 +3561,7 @@ DataManager.prototype = {
 		var list = [];
 		var y = 0;
 		//list = self._getSortedIDListStrict(self.state.filteredYAxis.entries());
-		list = self.state.yAxisRender.getRenderedItems();
+		list = self.state.yAxisRender.getItems();
 
 		var rect_text = this.state.svg
 			.selectAll(".a_text")
