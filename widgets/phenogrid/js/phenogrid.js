@@ -604,7 +604,8 @@ DataManager.prototype = {
 	*/
 	transform: function(data, species) {	
 
-		if (typeof (data.b) !== 'undefined') {
+		if (typeof(data) !== 'undefined' &&
+		    typeof (data.b) !== 'undefined') {
 			console.log("transforming...");
 
 			// extract the maxIC score; ugh!
@@ -1302,11 +1303,12 @@ DataManager.prototype = {
 		//var data = self.state.filteredCellData;
 
 		var cell_rects = this.state.svg.selectAll(".mini_cells")
-			.data(data, function(d) {return d.source_id + d.target;});   //d.yID + d.xID;});
+			.data(data, function(d) {return d.source_id + d.target_id;});   //D.Yid + D.xID;});
 		overviewX++;	// Corrects the gapping on the sides
 		overviewY++;
 		var cellRectTransform = "translate(" + overviewX +	"," + overviewY + ")";
 
+	    console.log("mini rects...");
 	    var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
 
 		cell_rects.enter()
@@ -1314,9 +1316,13 @@ DataManager.prototype = {
 			.attr("transform",cellRectTransform)
 			.attr("class", "mini_cell")
 			.attr("y", function(d, i) { 
+
 				var yid = d.source_id;
 				var yscale = self.state.smallYScale(yid);
-				var y = yscale + linePad / 2;
+			        var y = yscale + linePad / 2;
+			    //hh 
+			    var x = self.state.smallXScale(d.target_id+linePad/2);
+			    console.log(i+", "+d.source_id+", "+d.target_id+" ... "+x+","+y);
 				return y;})  // yID
 			.attr("x", function(d) { 
 				var xid = d.target_id;
@@ -1330,7 +1336,7 @@ DataManager.prototype = {
 			        colorID=d[colorSelector];
 			    var spec = self._getAxisData(colorID).species;
 			    var val = d.value[self.state.selectedCalculation];
-				return self._getColorForCellValue(self, spec, val);
+			    return self._getColorForCellValue(self, spec, val);
 			});
 
 		var yRenderedSize = this.state.yAxisRender.size();
@@ -1537,10 +1543,16 @@ DataManager.prototype = {
 			.domain(sortDataList.map(function (d) {return d; }))
 			.rangePoints([0,overviewRegionSize]);
 
-		var targids = targ.map(function (d) {return d; });
+	    console.log("targ are .."+JSON.stringify(targ));
+	    /*var targids = targ.map(function (d) {return d; });
+	    console.log("target ids are ..."+JSON.stringify(targids));*/
+
 		this.state.smallXScale = d3.scale.ordinal()
-			.domain(targids)
+			.domain(targ)
 			.rangePoints([0,overviewRegionSize]);
+	    console.log(this.state.smallXScale(targ[0]));
+	    
+	    
 	},
 
 	// Returns an sorted array of IDs from an arrayed Hashtable, but meant for non-overview display based off pos
@@ -2748,7 +2760,10 @@ DataManager.prototype = {
 				}
             	return "cells " + " " + cellConcept + " " + dConcept;
 			})
-			.attr("y", function(d, i) { return d.ypos * self.state.heightOfSingleCell;})  //self._getAxisData(d.yID).ypos + self.state.yoffsetOver;			
+			.attr("y", function(d, i) { 
+
+			    console.log(i+", "+d.source_id+", "+d.target_id);
+			    return d.ypos * self.state.heightOfSingleCell;})  //self._getAxisData(d.yID).ypos + self.state.yoffsetOver;			
 			.attr("x", function(d) { return self.state.xScale(d.target_id);})		//xID);})
 			.attr("width", 10)
 			.attr("height", 10)
