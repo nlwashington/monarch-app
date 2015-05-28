@@ -75,40 +75,25 @@ var AxisGroup = function(renderStartPos, renderEndPos, items)  {
 */
 AxisGroup.prototype = {
 	constructor: AxisGroup,
-
 	/*
-		Function: applyFilter
-			method to apply a filter (species) to the axisgroup subset of data. used largely for rendering
-		
-		Parameters:
-			species - species name
-	
-	applyFilter: function(species) {
-		if (typeof(species) !== 'undefined') {
-			this.species = species;
-			this.renderedItems = [];
-			for(var i in this.items) {
-				var spec = this.items[i].species;
-				if (spec == this.species) { 
-					this.renderedItems.push(this.items[i]);
-				} 
-			}
-    	}
-	},
-	*/
+		Function: getRenderStartPos
+	 		gets the rendered starting position
 
-	/**
-	* controls the start position of the AxisGroup rendering 
+	 	Return:
+	 		position index
 	*/
-	startPos: {
-		configurable: true,
-	 	get: function() {return this.renderStartPos;},
-	 	set: function(val) { this.renderStartPos = val;}
+	getRenderStartPos: function() {
+		return this.renderStartPos;
 	},
-	endPos: {
-		configurable: true,
-	 	get: function() {return this.renderEndPos;},
-	 	set: function(val) { this.renderEndPos = val;}
+	/*
+		Function: getRenderEndPos
+	 		gets the rendered end position
+
+	 	Return:
+	 		position index
+	*/	
+	getRenderEndPos: function() {
+			return this.renderEndPos;
 	},
 	/*
 		Function: itemAt
@@ -118,13 +103,14 @@ AxisGroup.prototype = {
 			index
 
 		Return:
-			items
+			item data
 	*/
 	itemAt: function(index) {
-		var renderedList = this.getItems();
+		var renderedList = this.keys();
 		var item = renderedList[index];
-    	return item;
+    	return this.get(item);
 	},
+
 	/*
 		Function: get
 			gets a single item element from the axis 
@@ -135,17 +121,47 @@ AxisGroup.prototype = {
 			item element
 	*/	
 	get: function(key) {
-		var i = 0, found = false, rec = null;
-		while (i < this.items.length && !found) {
-			rec = this.items[i];			
-			if (rec.id == key) {
-				found = true;
-				return rec;
-			}
-			i++;
-		}
-		return null;
+		return this.items[key];
 	},
+
+	/*
+		Function: entries
+			provides the array of rendered entries
+
+		Return:
+			array of objects of items
+	*/	
+	entries: function() {
+		var keys = Object.keys(this.items);
+		var a = [];
+		// loop through on those rendered
+		for (var i = this.renderStartPos; i < this.renderEndPos;i++) {
+			var key = keys[i];
+			var el = this.items[key];
+			a.push(el);
+		}
+		return a;
+	},
+
+	/*
+		Function: allEntries
+			provides the array of rendered entries
+
+		Return:
+			array of objects of items
+	*/	
+	allEntries: function() {
+		var keys = Object.keys(this.items);
+		var a = [];
+		// loop through on those rendered
+		for (var i = 0; i < keys.length;i++) {
+			var key = keys[i];
+			var el = this.items[key];
+			a.push(el);
+		}
+		return a;
+	},
+
 	/*
 		Function: getItems
 			provides the subset group of items to be rendered
@@ -157,7 +173,15 @@ AxisGroup.prototype = {
 		// if (typeof(this.renderedItems) !== 'undefined' && this.renderedItems != null) {
 		// 	return this.renderedItems.slice(this.renderStartPos, this.renderEndPos);
 		// } 
-		return this.items.slice(this.renderStartPos, this.renderEndPos);
+		var keys = Object.keys(this.items);
+		var a = [];
+		// loop through on those rendered
+		for (var i = this.renderStartPos; i < this.renderEndPos;i++) {
+			var key = keys[i];
+			var el = this.items[key];
+			a[key] = el;
+		}
+		return a;
 	},
 	
 	/*
@@ -168,12 +192,21 @@ AxisGroup.prototype = {
 			array list of rendered item IDs
 	*/	
 	getItemIDs: function() {
-		var renderedList = this.getItems();
-		var ids = renderedList.map(function(obj) {
-				return obj.id;
-			});
+		var ids = this.keys();
 		return ids;
 	},
+	/*
+		Function: keys
+			returns a list of key (id) values
+	
+		Returns:
+			array of key ids
+	*/
+	keys: function () {
+		var renderedList = this.getItems();
+		return Object.keys(renderedList);	
+	},
+
 	/*
 		Function: position
 			gets the relative position a key within the rendered or viewable range
@@ -185,39 +218,8 @@ AxisGroup.prototype = {
 			index value, -1 if item not found within rendered range
 	*/
 	position: function(key) {
-		var renderedList = this.getItems();
-		var index = 0, found = false, rec = null;
-		while (index < renderedList.length && !found) {
-			rec = renderedList[index];			
-			if (rec.id == key) {
-				found = true;
-				return index; 
-			}
-			index++;
-		}
-		return -1;
-	},
-	/*
-		Function: getAbsolutePosition
-			gets the absolute position in the axis for a given key
-	
-		Parameters:
-			key - a key value to locate
-
-		Return:
-			index value, -1 if item not found 
-	*/	
-	getAbsolutePosition: function(key) {
-		var index = 0, found = false, rec = null;
-		while (index < this.items.length && !found) {
-			rec = this.items[index];			
-			if (rec.id == key) {
-				found = true;
-				return index; 
-			}
-			index++;
-		}
-		return -1;
+		var renderedList = this.keys();
+		return renderedList.indexOf(key);
 	},
 
 	/*
@@ -238,9 +240,12 @@ AxisGroup.prototype = {
 			size of axis
 	*/	
 	groupSize: function() {
-    	return this.items.length;
+    	return Object.keys(this.items).length;
 	},
 
+	groupIDs: function() {
+		return Object.keys(this.items);
+	},
 	/*
 		Function: contains
 			determines if a item element is contained within the axis 
@@ -251,23 +256,13 @@ AxisGroup.prototype = {
 		Returns:
 			boolean
 	*/	
+
 	contains: function(key) {
 		if (this.get(key) != null)
 			return true;
 		else
 			return false;
 	},
-	/*
-		Function: itemsPut
-			puts an item onto the axis 
-	
-		Parameters:
-			val - value item
-
-	*/	
-	itemsPut: function(val) {
-    	this.items.push(val);
-    },
     /*
 		Function: sort
 			sorts the data on the axis 
@@ -277,9 +272,11 @@ AxisGroup.prototype = {
 
 	*/	
     sort: function(by) {
+    	var temp = this.allEntries();
  		if (by == 'Frequency') {
-			sortFunc = self._sortByFrequency;
-			this.items.sort(function(a,b) {
+			//sortFunc = self._sortByFrequency;
+			//this.items.sort(function(a,b) {
+			temp.sort(function(a,b) {				
 				var diff = b.count - a.count;
 				if (diff === 0) {
 					diff = a.id.localeCompare(b.id);
@@ -287,11 +284,13 @@ AxisGroup.prototype = {
 				return diff;
 			});
 		} else if (by == 'Frequency and Rarity') {
-			this.items.sort(function(a,b) {
+			//this.items.sort(function(a,b) {
+			temp.sort(function(a,b) {				
 				return b.sum-a.sum;
 			});
 		} else if (by == 'Alphabetic') {
-			this.items.sort(function(a,b) {
+			//this.items.sort(function(a,b) {
+			  temp.sort(function(a,b) {				
 				var labelA = a.label, 
 				labelB = b.label;
 				if (labelA < labelB) {return -1;}
@@ -299,6 +298,12 @@ AxisGroup.prototype = {
 				return 0;
 			});
 		}
+		// rebuild items
+		this.items = [];
+		for (var t in temp) {
+			this.items[temp[t].id] = temp[t];
+		}
+
     }
 };
 
@@ -353,8 +358,9 @@ DataManager.prototype = {
 	*/	
 	isInitialized: function() {
 		var targetSize = Object.keys(this.target).length;
+		var sourceSize = Object.keys(this.source).length;
 
-		if (this.source.length > 0 && targetSize > 0) {
+		if (sourceSize > 0 && targetSize > 0) {
 			this.initialized = true;
 		} else {
 			this.initialized = false;
@@ -372,19 +378,43 @@ DataManager.prototype = {
 		return this.qrySourceList;
 	},
 	/*
-		Function: entries
+		Function: getData
 			gets a list of entries from specified dataset
 
 		Parameters:
 			dataset - which data set array to return (i.e., source, target, cellData)
+			species - optional, species name
 
 		Returns:
 			array of objects
 	*/	
-	entries: function(dataset) {
+	getData: function(dataset, species) {
+		if (species != null) {
+			return this[dataset][species];
+		}
 		return this[dataset];
 	},
+	/*
+		Function: length
+			provides the length of specified data structure
 
+		Parameters:
+			dataset - which data set array to return (i.e., source, target, cellData)
+			species - optional, species name
+
+		Return:
+			length
+	*/	
+	length: function(dataset, species) {
+		var len = 0, a;
+			if (species == null) {
+				a = this[dataset];
+			} else {
+				a = this[dataset][species];
+			}
+			len = Object.keys(a).length;
+		return len;
+	},
 	/*
 		Function: cellPointMatch
 			takes to a key pair and matches it to the cellData point
@@ -427,13 +457,15 @@ DataManager.prototype = {
 			array of ids
 	*/
 	keys: function (dataset) {
-		var keys = [];
-		var len = eval('this.' + dataset + '.length');
-		for (var i=0; i < len; i++) {
-			var id = eval('this.' + dataset + '['+i+'].id');
-			keys.push(id);
-		}
-		return keys;
+		var a = this[dataset];
+		return Object.keys(a);		// Object.keys(this.target["Homo sapiens"])
+		// var keys = [];
+		// var len = eval('this.' + dataset + '.length');
+		// for (var i=0; i < len; i++) {
+		// 	var id = eval('this.' + dataset + '['+i+'].id');
+		// 	keys.push(id);
+		// }
+		// return keys;
 	},
 
 	/*
@@ -447,44 +479,14 @@ DataManager.prototype = {
 		Returns:
 			object
 	*/	
-	getElement: function (dataset, key) {
-		var i = 0, found = false, rec = null;
-		var len = eval('this.' + dataset + '.length');
-		while (i < len && !found) {
-			rec = eval('this.' + dataset + '['+i+']');
-			if (rec.id == key) {
-				found = true;
-				break;
-			}
-			i++;
+	getElement: function (dataset, key, species) {
+		var el;
+		if (typeof(species) !== 'undefined') {
+		 	el = this[dataset][species][key]; 
+		} else {
+			el = this[dataset][key];
 		}
-		return rec;
-	},
-	/*
-		Function: getElementIndex
-
-		returns the index of a single element object from a data set 
-
-		Parameters:
-			dataset - which data set
-			key - key to search
-
-		Returns:
-			index - position of element in the array, -1 if not found
-	*/	
-	getElementIndex: function (dataset, key) {
-		var i = 0, found = false, index = -1;
-		var len = eval('this.' + dataset + '.length');
-		while (i < len && !found) {
-			rec = eval('this.' + dataset + '['+i+']');
-			if (rec.id == key) {
-				found = true;
-				index = i;
-				break;
-			}
-			i++;
-		}
-		return index;
+		return el;
 	},
 	/*
 		Function: contains
@@ -499,19 +501,10 @@ DataManager.prototype = {
 		Returns:
 			boolean
 	*/
-	contains: function(dataset, key) {
-		var i = 0;
-		var found = false;
-		var len = eval('this.' + dataset + '.length');
-		while (i < len && !found) {
-			var rec = eval('this.' + dataset + '['+i+']');
-			if (rec.id == key) {
-				found = true;
-				break;
-			}
-			i++;
-		}
-		return found;
+	contains: function(dataset, key, species) {
+		var el = this.getElement(dataset, key, species);
+		if (typeof(el) !== 'undefined') return false;
+		return true;
 	}, 	
 
 	/*
@@ -636,9 +629,9 @@ DataManager.prototype = {
 				}
 				
 				// build the target list
-				var hashData = {"id":targetID, "label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
-								"rank": parseInt(idx), "score": item.score.score};   //"pos": parseInt(idx),
-				this.target[species].push(hashData);
+				var t = {"id":targetID, "label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
+								"rank": parseInt(idx), "score": item.score.score};  
+				this.target[species][targetID] = t;
 
 				var matches = data.b[idx].matches;
 				var curr_row, lcs, cellPoint, dataVals;
@@ -654,12 +647,15 @@ DataManager.prototype = {
 
 						lcs = this.parent._normalizeIC(curr_row);
 
-						// build a list of sources
-						if (!this.contains("source", sourceID_a)) {
+						var srcElement = this.getElement("source", sourceID_a);
+
+						// build a unique list of sources
+						if (typeof(srcElement) == 'undefined') {
+						//if (!this.contains("source", sourceID_a)) {
 
 							dataVals = {"id":sourceID_a, "label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), //"pos": 0, 
 											"count": count, "sum": sum, "type": "phenotype"};
-							this.source.push(dataVals);
+							this.source[sourceID_a] = dataVals;
 							//this.source.put(sourceID_a, hashDataVals);
 							// if (!this.state.hpoCacheBuilt && this.state.preloadHPO){
 							// 	this._getHPO(this._getConceptId(curr_row.a.id));
@@ -667,10 +663,15 @@ DataManager.prototype = {
 						}
 
 						// update values for sorting
-						var index = this.getElementIndex("source", sourceID_a);
-						if(  index > -1) {
-							this.source[index].count += 1;
-							this.source[index].sum += parseFloat(curr_row.lcs.IC);
+						//var index = this.getElementIndex("source", sourceID_a);
+
+						//if(  index > -1) {
+							//this.source[index].count += 1;
+							//this.source[index].sum += parseFloat(curr_row.lcs.IC);
+
+						if (typeof(srcElement) !== 'undefined') {
+							srcElement.count += 1;
+							srcElement.sum += parseFloat(curr_row.lcs.IC);
 						}
 
 						// building cell data points
@@ -1073,16 +1074,16 @@ DataManager.prototype = {
    	    var self = this;
 
 		// set default display limits based on displaying 30
-		if (this.state.dataManager.source.length > this.state.dataDisplayCount) {
+		if (this.state.dataManager.length("source") > this.state.dataDisplayCount) {
 			this.state.sourceDisplayLimit = this.state.dataDisplayCount;
 		} else {
-			this.state.sourceDisplayLimit = this.state.dataManager.source.length;
+			this.state.sourceDisplayLimit = this.state.dataManager.length("source");
 		}
 
-		if (this.state.dataManager.target[self.state.targetSpeciesName].length > this.state.dataDisplayCount) {
+		if (this.state.dataManager.length("target", self.state.targetSpeciesName) > this.state.dataDisplayCount) {
 			this.state.targetDisplayLimit = this.state.dataDisplayCount;
 		} else {
-			this.state.targetDisplayLimit = this.state.dataManager.target[self.state.targetSpeciesName].length;
+			this.state.targetDisplayLimit = this.state.dataManager.length("target",self.state.targetSpeciesName);
 		}
 
 
@@ -1090,13 +1091,12 @@ DataManager.prototype = {
        	recreate on reload */
        	// creates AxisGroup with full source and target lists with default rendering range
     	this.state.sourceAxis = new AxisGroup(0, self.state.sourceDisplayLimit,
-					  this.state.dataManager.source);
+					  this.state.dataManager.getData("source"));
 		// sort source with default sorting type
 		this.state.sourceAxis.sort(this.state.selectedSort); 
     
     	this.state.targetAxis =  new AxisGroup(0, self.state.targetDisplayLimit,
-					   this.state.dataManager.target[self.state.targetSpeciesName]);
-//    	this.state.targetAxis.applyFilter(self.state.targetSpeciesName);
+					   this.state.dataManager.getData("target", self.state.targetSpeciesName));
 
     	self._setAxisRenderers();
 	},
@@ -1261,9 +1261,9 @@ DataManager.prototype = {
 	_createOverviewSection: function() {
 		var self = this;
 
-		// set the total counts on each axis
-	    var yCount = self.state.yAxisRender.size();
-	    var xCount = self.state.xAxisRender.size();
+		// set the display counts on each axis
+	    var yCount = self.state.sourceDisplayLimit;  //   self.state.yAxisRender.size();
+	    var xCount = self.state.targetDisplayLimit;   // self.state.xAxisRender.size();
 
 	    // get the rendered starting point on axis
 		var startYIdx = self.state.yAxisRender.renderStartPos;    // this.state.currYIdx - yCount;
@@ -1283,7 +1283,7 @@ DataManager.prototype = {
 
 		// size of the entire region - it is a square
 		var overviewRegionSize = self.state.globalViewSize;
-		if (this.state.yAxisRender.groupSize() < yCount) {
+		if (this.state.yAxisRender.size() < yCount) {  //groupSize
 			overviewRegionSize = self.state.reducedGlobalViewSize;
 		}
 
@@ -1298,9 +1298,11 @@ DataManager.prototype = {
 
 		// add the items using smaller rects
 		//var cellData = self._mergeHashEntries(self.state.cellDataHash);
-		// MKD: need to add something here to handle over
-		var data = self.state.dataManager.cellData[self.state.targetSpeciesName];
 		//var data = self.state.filteredCellData;
+
+		// this should be the full set of cellData
+		// MKD:NEED TO BE ABLE TO HANDLE MULTIPLE SPECIES DISPLAYED
+		var data = self.state.dataManager.getData("cellData", self.state.targetSpeciesName);
 
 		var cell_rects = this.state.svg.selectAll(".mini_cells")
 			.data(data, function(d) {return d.source_id + d.target_id;});   //D.Yid + D.xID;});
@@ -1341,15 +1343,18 @@ DataManager.prototype = {
 
 		var yRenderedSize = this.state.yAxisRender.size();
 		var xRenderedSize = this.state.xAxisRender.size();		
-     	var lastYId = this.state.yAxisRender.itemAt(yRenderedSize - 1).id; // self._returnID(this.state.yAxisRender.getItems(),yCount - 1);
-	    var lastXId = this.state.xAxisRender.itemAt(xRenderedSize - 1).id; //self._returnID(this.state.xAxisRender.getItems(),xCount - 1);
-   	    var startYId = this.state.yAxisRender.itemAt(startYIdx).id;   //self._returnID(this.state.yAxisRender.getItems(),startYIdx);
-	    var startXId = this.state.xAxisRender.itemAt(startXIdx).id; //self._returnID(this.state.xAxisRender.getItems(),startXIdx);
+     	var lastYId = this.state.yAxisRender.itemAt(yRenderedSize - 1).id; 
+	    var lastXId = this.state.xAxisRender.itemAt(xRenderedSize - 1).id; 
+   	    var startYId = this.state.yAxisRender.itemAt(startYIdx).id;   
+	    var startXId = this.state.xAxisRender.itemAt(startXIdx).id;
 
 		var selectRectX = self.state.smallXScale(startXId);
 		var selectRectY = self.state.smallYScale(startYId);
 		var selectRectHeight = self.state.smallYScale(lastYId);
 		var selectRectWidth = self.state.smallXScale(lastXId);
+		console.log("yRenderedSize:" + yRenderedSize +"xRenderedSize" +xRenderedSize +
+				 "selectRectX: " + selectRectX +  " selectRectY:" + selectRectY + 
+			" selectRectHeight:" + selectRectHeight + " selectRectWidth:" + selectRectWidth);
 
 		self.state.highlightRect = self.state.svg.append("rect")
 			.attr("x",overviewX + selectRectX)
@@ -1530,27 +1535,29 @@ DataManager.prototype = {
 			.text("navigate the model view on the left");
 	},
 
-// MKD: needs refactored
 	_createSmallScales: function(overviewRegionSize) {
 		var self = this;
-		var sortDataList = [];
-		var targ = [];
+		var sourceList = [];
+		var targetList = [];
    	    //sortDataList = self._getSortedIDList(self.state.yAxisRender.getItemIDs());
-   	    sortDataList = self.state.yAxisRender.getItemIDs();
-	    targ = self.state.xAxisRender.getItemIDs();
+   	    //sortDataList = self.state.yAxisRender.getItemIDs();
+   	    //targ = self.state.xAxisRender.getItemIDs();
+   	    sourceList = self.state.yAxisRender.groupIDs();
+	    targetList = self.state.xAxisRender.groupIDs();
+
 
 		this.state.smallYScale = d3.scale.ordinal()
-			.domain(sortDataList.map(function (d) {return d; }))
+			.domain(sourceList.map(function (d) {return d; }))
 			.rangePoints([0,overviewRegionSize]);
 
-	    console.log("targ are .."+JSON.stringify(targ));
+	    console.log("targetList are .."+JSON.stringify(targetList));
 	    /*var targids = targ.map(function (d) {return d; });
 	    console.log("target ids are ..."+JSON.stringify(targids));*/
 
 		this.state.smallXScale = d3.scale.ordinal()
-			.domain(targ)
+			.domain(targetList)
 			.rangePoints([0,overviewRegionSize]);
-	    console.log(this.state.smallXScale(targ[0]));
+	    //console.log(this.state.smallXScale(targetList[0]));
 	    
 	    
 	},
@@ -1640,8 +1647,11 @@ DataManager.prototype = {
 		console.log ("Rendering the matrix...");
 		if ( this.state.targetSpeciesName != "Overview") {
 			var sourceList,targetList; 
-			sourceList = this.state.yAxisRender.getItemIDs();
-			targetList = this.state.xAxisRender.getItemIDs();
+			// sourceList = this.state.yAxisRender.getItemIDs();
+			// targetList = this.state.xAxisRender.getItemIDs();
+			sourceList = this.state.yAxisRender.keys();
+			targetList = this.state.xAxisRender.keys();
+
 
 			// loop through the rendered source/target to build matrix
 			for(var s=0; s < sourceList.length; s++) {
@@ -1657,8 +1667,8 @@ DataManager.prototype = {
 						} else {
 							source = cellMatch.source_id;
 							target = cellMatch.target_id;
-			 			}
-			 			yPos = this.state.yAxisRender.position(source);
+			 			
+}			 			yPos = this.state.yAxisRender.position(source);
 	 					xPos = this.state.xAxisRender.position(target);						
 
 			 			if ( xPos > -1 && yPos > -1) {
@@ -1867,24 +1877,15 @@ DataManager.prototype = {
 		return ics;
 	},
 
-	// Will update the position of the phenotype based on sort
-	//MKD: is this needed???
-/*	_updatePhenoPos: function(key,rank) {
-		//var values = this.state.phenotypeListHash.get(key);
-		var values = this.state.dataManager.source.get(key);
-		values.pos = rank;
-		//this.state.phenotypeListHash.put(key,values);
-		this.state.dataManager.source.put(key,values);
-	},
-*/
 	// Returns axis data from a ID of models or phenotypes
 	_getAxisData: function(key) {
-	    if (this.state.yAxisRender.contains(key)){
-		    return this.state.yAxisRender.get(key);
-		} else if (this.state.xAxisRender.contains(key)){
-		    return this.state.xAxisRender.get(key);
-		}
-		else { return null; }
+	 
+	     if (this.state.yAxisRender.contains(key)){
+		     return this.state.yAxisRender.get(key);
+		 } else if (this.state.xAxisRender.contains(key)){
+		     return this.state.xAxisRender.get(key);
+		 }
+		 else { return null; }
 	},
 
 	_getAxisDataPosition: function(key) {
@@ -1899,21 +1900,26 @@ DataManager.prototype = {
 	// Determines if an ID belongs to the Model or Phenotype hashtable
 	// MKD: MOVE TIS TO DATAMANAGER;  use type attribute instead of this hard-code
 	_getIDType: function(key) {
-		if (this.state.dataManager.contains("target",key)){
-			return "Model";
+		if (this.state.dataManager.contains("target",key, this.state.targetSpeciesName)){
+			return "target";
 		}
 		//else if (this.state.phenotypeListHash.containsKey(key)){
 		else if (this.state.dataManager.contains("source", key)) {
-			return "Phenotype";
+			return "source";
 		}
 		else { return false; }
 	},
 
 	_getIDTypeDetail: function(key) {
 		//var info = this.state.modelListHash.get(key);
-		var info = this.state.dataManager.getElement("target", key);
-		
-		if (info !== null) return info.type;
+		//var info = this.state.dataManager.getElement("target", key, this.state.targetSpeciesName);
+		var info;
+	     if (this.state.yAxisRender.contains(key)){
+		     info = this.state.yAxisRender.get(key);
+		 } else if (this.state.xAxisRender.contains(key)){
+		     info = this.state.xAxisRender.get(key);
+		 }
+		if (typeof(info) !== 'undefined') return info.type;
 		return "unknown";
 	},
 
@@ -2182,7 +2188,7 @@ DataManager.prototype = {
 	// Will return all partial matches in the cellDataHash structure.  Good for finding rows/columns of data
 	_getMatchingModels: function (key) {
 		//var cellKeys = this.state.cellDataHash.keys();
-		var cellKeys = this.state.dataManager.cellData.entries();
+		var cellKeys = this.state.dataManager.keys("cellData");  // MKD: this still needs work, esp for overview mode
 		var matchingKeys = [];
 		for (var i in cellKeys){
 //			if (key == cellKeys[i].yID || key == cellKeys[i].xID){
@@ -2202,14 +2208,14 @@ DataManager.prototype = {
 		var models = self._getMatchingModels(curr_data);
 		var highlightX = false;
 
-		if (dataType === "Phenotype"){
+		if (dataType === "source"){
 			if (this.state.invertAxis){
 				alabels = this.state.svg.selectAll("text.a_text");
 				highlightX = true;
 			} else {
 				alabels = this.state.svg.selectAll("text.model_label");
 			}
-		} else if (dataType === "Model"){
+		} else if (dataType === "target"){
 			if (this.state.invertAxis){
 				alabels = this.state.svg.selectAll("text.model_label");
 			} else {
@@ -2243,7 +2249,7 @@ DataManager.prototype = {
 		var self = this;
 		var dataType = self._getIDType(curr_data);
 		var label, alabels, shortTxt, shrinkSize;
-		if (dataType === "Phenotype"){
+		if (dataType === "source"){
 			if (!this.state.invertAxis){
 				alabels = this.state.svg.selectAll("text.a_text");
 				shrinkSize = self.state.textLength;
@@ -2251,7 +2257,7 @@ DataManager.prototype = {
 				alabels = this.state.svg.selectAll("text.model_label");
 				shrinkSize = self.state.labelCharDisplayCount;
 			}
-		} else if (dataType === "Model"){
+		} else if (dataType === "target"){
 			if (!this.state.invertAxis){
 				alabels = this.state.svg.selectAll("text.model_label"); 
 				shrinkSize = self.state.labelCharDisplayCount;
@@ -2452,21 +2458,22 @@ DataManager.prototype = {
 			var alabels;
 			if (IDType) {
 				var id = this._getConceptId(data);
-				var label = this._getAxisData(data).label;
+				if (typeof(id) !== 'undefined') {
+					var label = this._getAxisData(data).label;
 
-				if ((IDType == "Phenotype" && !this.state.invertAxis) || (IDType == "Model" && this.state.invertAxis)){
-					alabels = this.state.svg.selectAll("text.a_text." + id);
-					alabels.html(this._getShortLabel(label));
-				}else if ((IDType == "Phenotype" && this.state.invertAxis) || (IDType == "Model" && !this.state.invertAxis)){
-					alabels = this.state.svg.selectAll("text#" + id);
-					alabels.html(this._getShortLabel(label,self.state.labelCharDisplayCount));
+					if ((IDType == "source" && !this.state.invertAxis) || (IDType == "target" && this.state.invertAxis)){
+						alabels = this.state.svg.selectAll("text.a_text." + id);
+						alabels.html(this._getShortLabel(label));
+					}else if ((IDType == "source" && this.state.invertAxis) || (IDType == "target" && !this.state.invertAxis)){
+						alabels = this.state.svg.selectAll("text#" + id);
+						alabels.html(this._getShortLabel(label,self.state.labelCharDisplayCount));
+					}
+
+					alabels.style("font-weight","normal");
+					alabels.style("text-decoration", "none");
+					//alabels.style("fill", "black");
+					alabels.style("fill", this._getExpandStyling(data));
 				}
-
-				alabels.style("font-weight","normal");
-				alabels.style("text-decoration", "none");
-				//alabels.style("fill", "black");
-				alabels.style("fill", this._getExpandStyling(data));
-				
 				//this._deselectMatching(data);
 			}
 		}
@@ -2476,11 +2483,11 @@ DataManager.prototype = {
 	_clickItem: function(url_origin,data) {
 		var url;
 		var apientity = this.state.defaultApiEntity;
-		if (this._getIDType(data) == "Phenotype"){
+		if (this._getIDType(data) == "source"){
 			url = url_origin + "/phenotype/" + (data.replace("_", ":"));
 			var win = window.open(url, '_blank');
 
-		} else if (this._getIDType(data) == "Model"){
+		} else if (this._getIDType(data) == "target"){
 			apientity = this._getIDTypeDetail(data);
 
 			// if it's overview, then just allow view of the model clicked
@@ -2555,8 +2562,6 @@ DataManager.prototype = {
 				self._clickItem(self.state.serverURL,data);
 			})
 			.on("mouseover", function(d, event) {  
-				var evt = event || window.event;
-				//console.log(evt);
 				self._selectXItem(data, this);
 			})
 			.on("mouseout", function(d) {
@@ -2632,7 +2637,7 @@ DataManager.prototype = {
 	},
 
 	_showCellData: function(d, obj) {
-		var retData, prefix, targetLabel, sourceLabel;
+		var retData, prefix, targetLabel, sourceLabel, type;
 
 		var yInfo = this._getAxisData(d.source_id); //this._getAxisData(d.yID); 
 		var xInfo = this._getAxisData(d.target_id);
@@ -2640,21 +2645,31 @@ DataManager.prototype = {
 		var species = fullInfo.species;
 		var taxon = fullInfo.taxon;
 
-		if (this.state.dataManager.contains("source", d.target_id)){
-			sourceLabel = this.state.dataManager.getElement("source", d.target_id).label;
-		} else if (this.state.dataManager.contains("source", d.source_id)){
-			sourceLabel = this.state.dataManager.getElement("source", d.source_id).label;
-		} else {
-			sourceLabel = null;
-		}
+		 if (self.state.invertAxis) {
+			sourceLabel = xInfo.label;
+			targetLabel = yInfo.label;
+			type = xInfo.type;
+		 } else {
+			sourceLabel = yInfo.label;
+			targetLabel = xInfo.label;
+			type = yInfo.type;
+		 }
 
-		if (this.state.dataManager.contains("target", d.target_id)) {
-			targetLabel = this.state.dataManager.getElement("target", d.target_id).label;
-		} else if (this.state.dataManager.contains("target", d.source_id)) {
-			targetLabel = this.state.dataManager.getElement("target", d.source_id).label;
-		} else {
-			targetLabel = null;
-		}
+		// if (this.state.dataManager.contains("source", d.target_id)){
+		// 	sourceLabel = this.state.dataManager.getElement("source", d.target_id).label;
+		// } else if (this.state.dataManager.contains("source", d.source_id)){
+		// 	sourceLabel = this.state.dataManager.getElement("source", d.source_id).label;
+		// } else {
+		// 	sourceLabel = null;
+		// }
+
+		// if (this.state.dataManager.contains("target", d.target_id)) {
+		// 	targetLabel = this.state.dataManager.getElement("target", d.target_id).label;
+		// } else if (this.state.dataManager.contains("target", d.source_id)) {
+		// 	targetLabel = this.state.dataManager.getElement("target", d.source_id).label;
+		// } else {
+		// 	targetLabel = null;
+		// }
 
 
 		if (taxon !== undefined || taxon !== null || taxon !== '' || isNaN(taxon)) {
@@ -2686,9 +2701,11 @@ DataManager.prototype = {
 		retData = "<strong>Query: </strong> " + sourceLabel + formatScore(fullInfo.IC.toFixed(2)) +
 			"<br/><strong>Match: </strong> " + d.b_label + formatScore(d.b_IC.toFixed(2)) +
 			"<br/><strong>Common: </strong> " + d.subsumer_label + formatScore(d.subsumer_IC.toFixed(2)) +
-			"<br/><strong>" + this._capitalizeString(fullInfo.type)+": </strong> " + targetLabel +
+			"<br/><strong>" + this._capitalizeString(type)+": </strong> " + targetLabel +
 			"<br/><strong>" + prefix + ":</strong> " + d.value[this.state.selectedCalculation].toFixed(2) + suffix +
 			"<br/><strong>Species: </strong> " + species + " (" + taxon + ")";
+
+		console.log(retData);
 		this._updateDetailSection(retData, this._getXYPos(obj));
 	},
 
@@ -2726,7 +2743,7 @@ DataManager.prototype = {
 	 */
 	_getXYPos: function(obj) {
 		var tform = { x: 0, y: 0};
-		// if a transform exisits, apply it
+		// if a transform exists, apply it
 		if (typeof obj.attributes.transform != 'undefined') {
 			var transform_str = obj.attributes.transform.value;
 			tform = this._extractTransform(transform_str);
@@ -2950,7 +2967,7 @@ DataManager.prototype = {
 		// This is for the new "Overview" target option 
 		if (this.state.targetSpeciesName == "Overview"){
 			//MKD: data = this.state.cellDataHash.keys();
-			data = this.state.dataManager.cellData.keys();
+			data = this.state.dataManager.keys("cellData");   //MKD: NEEDS SOME WORK 
 		} else {
 			data = self.state.filteredCellData;
 		}
@@ -2985,11 +3002,7 @@ DataManager.prototype = {
 			this.state.currYIdx = newYPos;
 		}
 
-		// MKD: somewhere in here set the renderedPos of AxisRenders
-		// this.state.xAxisRender.startPos =
-		// this.state.xAxisRender.endPos =
-
-//		this._filterDisplay();
+	//		this._filterDisplay();
 		this._clearXLabels();
 
 		this._createXRegion();
@@ -3076,10 +3089,12 @@ DataManager.prototype = {
 		var y =0;
 		if (!this.state.invertAxis) {
 			//list = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
-			list = self.state.xAxisRender.getItemIDs();
+			//list = self.state.xAxisRender.getItemIDs();
+			list = self.state.xAxisRender.keys();
 		} else {
 			//list = self._getSortedIDListStrict(this.state.filteredYAxis.entries());
-			list = self.state.yAxisRender.getItemIDs();
+			//list = self.state.yAxisRender.getItemIDs();
+			list = self.state.yAxisRender.keys();			
 		}
 
 		this.state.svg.selectAll("text.scores")
@@ -3261,7 +3276,8 @@ DataManager.prototype = {
 		var mods = [];
 
 		//	mods = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
-		mods = this.state.xAxisRender.getItemIDs();
+		//mods = this.state.xAxisRender.getItemIDs();
+		mods = this.state.xAxisRender.keys();
 
 		this.state.xScale = d3.scale.ordinal()
 			.domain(mods.map(function (d) {return d; }))
@@ -3298,7 +3314,7 @@ DataManager.prototype = {
 	_addGradients: function() {
 		var self = this;
 		//var cellData = this.state.cellDataHash.values();
-		var cellData = this.state.dataManager.cellData[self.state.targetSpeciesName];
+		var cellData = this.state.dataManager.getData("cellData", self.state.targetSpeciesName);
 		var temp_data = cellData.map(function(d) { return d.value[self.state.selectedCalculation];} );
 		var diff = d3.max(temp_data) - d3.min(temp_data);
 		var y1;
@@ -3306,7 +3322,7 @@ DataManager.prototype = {
 		// only show the scale if there is more than one value represented in the scale
 		if (diff > 0) {
 			// baseline for gradient positioning
-			if (this.state.dataManager.source.length < this.state.sourceDisplayLimit) {
+			if (this.state.dataManager.length("source") < this.state.sourceDisplayLimit) {
 				y1 = 172;
 			} else {
 				y1 = 262;
@@ -3576,11 +3592,12 @@ DataManager.prototype = {
 		var list = [];
 		var y = 0;
 		//list = self._getSortedIDListStrict(self.state.filteredYAxis.entries());
-		list = self.state.yAxisRender.getItems();
+		list = self.state.yAxisRender.entries(); //getItems();
 
 		var rect_text = this.state.svg
 			.selectAll(".a_text")
-			.data(list, function(d) { return d.label; });
+			.data(list, function(d) { 
+				return d.label; });
 		rect_text.enter()
 			.append("text")
 			.attr("transform","translate(0, " + (this.state.yModelRegion+5) + ")")
@@ -3892,7 +3909,7 @@ DataManager.prototype = {
 
 	// collapse the expanded items for the current selected model targets
 	_collapse: function(curModel) {
-		var curData = this.state.dataManager.target.get(curModel);
+		var curData = this.state.dataManager.getElement("target", curModel);
 		var modelInfo = {id: curModel, d: curData};
 
 		// check cached hashtable first 
@@ -3936,12 +3953,12 @@ DataManager.prototype = {
 	// insert into the model list
 	_insertionModelList: function (insertPoint, insertions) {
 		var newModelList = new Hashtable();
-		var sortedModelList= self._getSortedIDList( this.state.dataManager.target.entries()); 
+		var sortedModelList= self._getSortedIDList( this.state.dataManager.getData("target")); 
 		var reorderPointOffset = insertions.size();
 		var insertionOccurred = false;
 
 		for (var i in sortedModelList){
-			var entry = this.state.dataManager.target.get(sortedModelList[i]);
+			var entry = this.state.dataManager.getElement("target", sortedModelList[i]);
 			if (entry.pos == insertPoint) {
 				// add the entry, or gene in this case	
 				newModelList.put(sortedModelList[i], entry);
@@ -3968,7 +3985,7 @@ DataManager.prototype = {
 		var newModelList = new Hashtable();
 		var newModelData = [];
 		var removalKeys = removalList.genoTypes.keys();   // MKD: needs refactored
-		var sortedModelList= self._getSortedIDList(this.state.dataManager.target.entries());
+		var sortedModelList= self._getSortedIDList(this.state.dataManager.getData("target"));
 		var removeEntries = removalList.genoTypes.entries();
 
 		// get the max position that was inserted
@@ -3981,7 +3998,7 @@ DataManager.prototype = {
 		}
 
 		for (var i in sortedModelList){
-			var entry = this.state.dataManager.target.get(sortedModelList[i]);
+			var entry = this.state.dataManager.getElement("target",sortedModelList[i]);
 			var found = false, cnt = 0;
 
 			// check list to make sure it needs removed
@@ -4136,7 +4153,7 @@ DataManager.prototype = {
 		var refresh = true;
 		var targets = new Hashtable();
 		var type = this._getIDTypeDetail(curModel);
-		var curData = this.state.dataManager.target.get(curModel);
+		var curData = this.state.dataManager.getElement("target", curModel);
 		var modelData = {id: curModel, type: type, d: curData};
 
 		// check cached hashtable first 
