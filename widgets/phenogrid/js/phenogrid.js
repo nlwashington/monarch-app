@@ -204,7 +204,7 @@ AxisGroup.prototype = {
 			index value, -1 if item not found within rendered range
 	*/
 	position: function(key) {
-		var renderedList = this.keys();
+		var renderedList = this.keys(); 
 		return renderedList.indexOf(key);
 	},
 
@@ -1694,10 +1694,10 @@ DataManager.prototype = {
 			 		}
 				}
 			}
-			if (newFilteredCell != null && newFilteredCell.length > 0) {
-				newFilteredCell.sort(function(a, b) { return a.yPos-b.yPos});	
+			//if (newFilteredCell != null && newFilteredCell.length > 0) {
+			//	newFilteredCell.sort(function(a, b) { return a.yPos-b.yPos});	
 				this.state.filteredCellData = newFilteredCell;	
-			}
+			//}
 		}
 	},
 
@@ -2755,7 +2755,7 @@ DataManager.prototype = {
 			})
 			.attr("y", function(d, i) { 
 
-			    console.log(i+", "+d.source_id+", "+d.target_id);
+			    //console.log(i+", "+d.source_id+", "+d.target_id);
 			    return d.ypos * self.state.heightOfSingleCell;})  //self._getAxisData(d.yID).ypos + self.state.yoffsetOver;			
 			.attr("x", function(d) { return self.state.xScale(d.target_id);})		//xID);})
 			.attr("width", 10)
@@ -2795,12 +2795,11 @@ DataManager.prototype = {
 			var colorID = d[colorSelector];
 			return self._getColorForCellValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
 		});
-/*  MKD: I don't think this code is necessary, it just seems to provide some animation
 		cell_rects.transition()
 			.delay(20)
 			.style('opacity', '1.0')
 			.attr("y", function(d) {
-				return d.ypos - 10;     //self._getAxisData(d.yID).ypos - 10; // rowid
+				return d.ypos * self.state.heightOfSingleCell;     //self._getAxisData(d.yID).ypos - 10; // rowid
 			})
 			.attr("x", function(d) { 
 				return self.state.xScale(d.target_id);  //xID);
@@ -2808,7 +2807,7 @@ DataManager.prototype = {
 		cell_rects.exit().transition()
 			.style('opacity', '0.0')
 		.remove();
-*/		
+		
 	},
 
 	_createSpeciesBorderOutline: function () {
