@@ -627,10 +627,10 @@ DataManager.prototype = {
 
 				// [vaa12] HACK.  NEEDED FOR ALLOWING MODELS OF THE SAME ID AKA VARIANTS TO BE DISPLAYED W/O OVERLAP
 				// SEEN MOST WITH COMPARE AND/OR EXOMISER DATA
-				if (this.contains("target", targetID)){
-					targetID += "_" + variantNum;
-					variantNum++;
-				}
+				// if (this.contains("target", targetID)){
+				// 	targetID += "_" + variantNum;
+				// 	variantNum++;
+				// }
 
 				// TODO: THIS NEEDS CHANGED TO CATEGORY (I THINK MONARCH TEAM MENTIONED ADDING THIS)
 				type = this.parent.defaultApiEntity;
@@ -770,7 +770,8 @@ DataManager.prototype = {
 		dataDisplayCount: 30,
 		labelCharDisplayCount : 20,
 		apiEntityMap: [ {prefix: "HP", apifragment: "disease"},
-			{prefix: "OMIM", apifragment: "disease"}],
+			{prefix: "OMIM", apifragment: "disease"}, 
+			{prefix: "MGI", apifragment: "gene"}],
 		defaultApiEntity: "gene",
 		tooltips: {},
 		widthOfSingleCell: 18,
@@ -2624,29 +2625,12 @@ DataManager.prototype = {
 		 if (self.state.invertAxis) {
 			sourceLabel = xInfo.label;
 			targetLabel = yInfo.label;
-			type = xInfo.type;
+			type = yInfo.type;
 		 } else {
 			sourceLabel = yInfo.label;
 			targetLabel = xInfo.label;
-			type = yInfo.type;
+			type = xInfo.type;
 		 }
-
-		// if (this.state.dataManager.contains("source", d.target_id)){
-		// 	sourceLabel = this.state.dataManager.getElement("source", d.target_id).label;
-		// } else if (this.state.dataManager.contains("source", d.source_id)){
-		// 	sourceLabel = this.state.dataManager.getElement("source", d.source_id).label;
-		// } else {
-		// 	sourceLabel = null;
-		// }
-
-		// if (this.state.dataManager.contains("target", d.target_id)) {
-		// 	targetLabel = this.state.dataManager.getElement("target", d.target_id).label;
-		// } else if (this.state.dataManager.contains("target", d.source_id)) {
-		// 	targetLabel = this.state.dataManager.getElement("target", d.source_id).label;
-		// } else {
-		// 	targetLabel = null;
-		// }
-
 
 		if (taxon !== undefined || taxon !== null || taxon !== '' || isNaN(taxon)) {
 			if (taxon.indexOf("NCBITaxon:") != -1) {
@@ -2975,13 +2959,13 @@ DataManager.prototype = {
 		var newXEndPos, newYEndPos;
 
 console.log("X:"+newXPos + " Y:"+newYPos);
-		if (newXPos > xSize){
+		if (newXPos >= xSize){
 			this.state.currXIdx = xSize;
 		} else {
 			this.state.currXIdx = newXPos;
 		}
 
-		if (newYPos > ySize){
+		if (newYPos >= ySize){
 			this.state.currYIdx = ySize;
 		} else {
 			this.state.currYIdx = newYPos;
@@ -2999,7 +2983,6 @@ console.log("xaxis start:" + this.state.xAxisRender.getRenderStartPos() + " end:
 		this.state.yAxisRender.setRenderEndPos(this.state.currYIdx);
 
 console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:"+this.state.yAxisRender.getRenderEndPos());
-	//		this._filterDisplay();
 
 		this._buildRenderedMatrix();
 		this._clearXLabels();
@@ -3611,7 +3594,6 @@ console.log(list);
 			.attr("x", 208)    // MAGIC NUM
 			.attr("y", function(d) {				
 				  y += 13;  
-				  console.log("y:"+y);
 				return y;  // 		self._getAxisData(d).ypos + 10;
 			})
 			.on("mouseover", function(d) {
@@ -3638,17 +3620,20 @@ console.log(list);
 	// MKD: should probably move this
 		this._buildUnmatchedSourceDisplay();
 
-		// rect_text.transition()
-		// 	.style('opacity', '1.0')
-		// 	.delay(5);
-//			.attr("y", function(d) {
-//				return self.state.yAxisRender.getOrdinalPosition(d.id) + self.state.yoffsetOver + pad;    //self._getAxisData(d).ypos + self.state.yoffsetOver + pad;
-//			});
-		// rect_text.exit()
-		// 	.transition()
-		// 	.delay(20)
-		// 	.style('opacity', '0.0')
-		// 	.remove();
+		y = 0;  // set
+		rect_text.transition()
+			.style('opacity', '1.0')
+			.delay(5)
+			.attr("y", function(d) {
+				y += 13;  
+				return y
+				  //self.state.yAxisRender.getOrdinalPosition(d.id) + self.state.yoffsetOver + pad;    //self._getAxisData(d).ypos + self.state.yoffsetOver + pad;
+			});
+		rect_text.exit()
+			.transition()
+			.delay(20)
+			.style('opacity', '0.0')
+			.remove();
 	},
 
 	_getUnmatchedSources: function(){
