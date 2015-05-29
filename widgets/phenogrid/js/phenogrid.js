@@ -85,6 +85,15 @@ AxisGroup.prototype = {
 	getRenderStartPos: function() {
 		return this.renderStartPos;
 	},
+	setRenderStartPos: function(position) {
+		// don't allow out of position starts
+		if (position < 0 || position > this.groupSize()) {
+			position = 0; // default to zero
+		}
+
+		this.renderStartPos = position;
+	},
+
 	/*
 		Function: getRenderEndPos
 	 		gets the rendered end position
@@ -93,11 +102,18 @@ AxisGroup.prototype = {
 	 		position index
 	*/	
 	getRenderEndPos: function() {
-			return this.renderEndPos;
+		return this.renderEndPos;
 	},
+	setRenderEndPos: function(position) {
+		// don't let the postion go pass the max group size
+		if (position > this.groupSize()) {
+			position = this.groupSize();
+		}		
+		this.renderEndPos = position;
+	},	
 	/*
 		Function: itemAt
-			gets a single item at a specified index within the rendered axisgroup 
+			gets a single item at a specified index position within the rendered axisgroup 
 
 		Parameters:
 			index
@@ -113,7 +129,7 @@ AxisGroup.prototype = {
 
 	/*
 		Function: get
-			gets a single item element from the axis 
+			gets a single item element using a key from the axis 
 	
 		Parameters:
 			key
@@ -144,25 +160,6 @@ AxisGroup.prototype = {
 	},
 
 	/*
-		Function: allEntries
-			provides the array of rendered entries
-
-		Return:
-			array of objects of items
-	*/	
-	allEntries: function() {
-		var keys = Object.keys(this.items);
-		var a = [];
-		// loop through on those rendered
-		for (var i = 0; i < keys.length;i++) {
-			var key = keys[i];
-			var el = this.items[key];
-			a.push(el);
-		}
-		return a;
-	},
-
-	/*
 		Function: getItems
 			provides the subset group of items to be rendered
 
@@ -175,7 +172,7 @@ AxisGroup.prototype = {
 		// } 
 		var keys = Object.keys(this.items);
 		var a = [];
-		// loop through on those rendered
+		// loop through only those that are rendered
 		for (var i = this.renderStartPos; i < this.renderEndPos;i++) {
 			var key = keys[i];
 			var el = this.items[key];
@@ -184,17 +181,6 @@ AxisGroup.prototype = {
 		return a;
 	},
 	
-	/*
-		Function: getItemIDs		
-			gets list of all rendered item IDs within the axisgroup
-
-		Return:
-			array list of rendered item IDs
-	*/	
-	getItemIDs: function() {
-		var ids = this.keys();
-		return ids;
-	},
 	/*
 		Function: keys
 			returns a list of key (id) values
@@ -234,18 +220,44 @@ AxisGroup.prototype = {
 	},
 	/*
 		Function: groupSize
-			provides the size of the entire axis
+			provides the size of the entire axis group
 
 		Return:
-			size of axis
+			size
 	*/	
 	groupSize: function() {
     	return Object.keys(this.items).length;
 	},
 
+	/*
+		Function: groupIDs
+			provides list of IDs for all entries within the axis group
+
+		Return:
+			array
+	*/	
 	groupIDs: function() {
 		return Object.keys(this.items);
 	},
+	/*
+		Function: groupEntries
+			provides list of all entries within the axis group
+
+		Return:
+			array of objects of items
+	*/	
+	groupEntries: function() {
+		var keys = Object.keys(this.items);
+		var a = [];
+		// loop through on those rendered
+		for (var i = 0; i < keys.length;i++) {
+			var key = keys[i];
+			var el = this.items[key];
+			a.push(el);
+		}
+		return a;
+	},
+
 	/*
 		Function: contains
 			determines if a item element is contained within the axis 
@@ -272,7 +284,7 @@ AxisGroup.prototype = {
 
 	*/	
     sort: function(by) {
-    	var temp = this.allEntries();
+    	var temp = this.groupEntries();
  		if (by == 'Frequency') {
 			//sortFunc = self._sortByFrequency;
 			//this.items.sort(function(a,b) {
@@ -1324,7 +1336,7 @@ DataManager.prototype = {
 			        var y = yscale + linePad / 2;
 			    //hh 
 			    var x = self.state.smallXScale(d.target_id+linePad/2);
-			    console.log(i+", "+d.source_id+", "+d.target_id+" ... "+x+","+y);
+			    //console.log(i+", "+d.source_id+", "+d.target_id+" ... "+x+","+y);
 				return y;})  // yID
 			.attr("x", function(d) { 
 				var xid = d.target_id;
@@ -1334,8 +1346,8 @@ DataManager.prototype = {
 			.attr("width", linePad)
 			.attr("height", linePad)
 			.attr("fill", function(d) {
-				var colorID;
-			        colorID=d[colorSelector];
+				//var colorID=d[colorSelector];
+				var colorID=d.target_id;
 			    var spec = self._getAxisData(colorID).species;
 			    var val = d.value[self.state.selectedCalculation];
 			    return self._getColorForCellValue(self, spec, val);
@@ -1539,9 +1551,8 @@ DataManager.prototype = {
 		var self = this;
 		var sourceList = [];
 		var targetList = [];
-   	    //sortDataList = self._getSortedIDList(self.state.yAxisRender.getItemIDs());
-   	    //sortDataList = self.state.yAxisRender.getItemIDs();
-   	    //targ = self.state.xAxisRender.getItemIDs();
+
+		// create list of all item ids within each axis
    	    sourceList = self.state.yAxisRender.groupIDs();
 	    targetList = self.state.xAxisRender.groupIDs();
 
@@ -1647,8 +1658,7 @@ DataManager.prototype = {
 		console.log ("Rendering the matrix...");
 		if ( this.state.targetSpeciesName != "Overview") {
 			var sourceList,targetList; 
-			// sourceList = this.state.yAxisRender.getItemIDs();
-			// targetList = this.state.xAxisRender.getItemIDs();
+
 			sourceList = this.state.yAxisRender.keys();
 			targetList = this.state.xAxisRender.keys();
 
@@ -1690,41 +1700,7 @@ DataManager.prototype = {
 			}
 		}
 	},
-	// Previously filterSelected
-/* MKD: REFACTOR THIS TO USE AXISGROUP
-	_filterDisplay: function(){
-		var self = this;
-		var axis_idx = 0;
-		var sortedYArray = [];
 
-	    var startYIdx = this.state.currYIdx  - this.state.yAxisRender.size();
-		var	displayYLimiter = this.state.currYIdx;
-	    var startXIdx = this.state.currXIdx - this.state.xAxisRender.size();
-		var	displayXLimiter = this.state.currXIdx;
-
-	    this.state.filteredYAxis = self._filterListHash(this.state.yAxisRender.getItems(),
-							    startYIdx,displayYLimiter);
-	    this.state.filteredXAxis = self._filterListHash(this.state.xAxisRender.getItems(),
-							    startXIdx,displayXLimiter);
-
-		sortedYArray = self._getSortedIDListStrict(self.state.filteredYAxis.entries());
-
-		for (var i in sortedYArray) {
-			// update the YAxis
-			// the height of each row
-			var size = 10;
-			// the spacing you want between rows
-			var gap = 3;
-			// push the rowid and ypos onto the yaxis array
-			// so now the yaxis will be in the order of the ranked phenotypes
-			var ypos = (axis_idx * (size + gap)) + self.state.yoffset;
-			self._setYPosHash(sortedYArray[i], ypos); 
-			axis_idx++;
-		}
-
-		self._filterHashTables();
-	},
-*/
 	// given a list of phenotypes, find the top n models
 	// I may need to rename this method "getModelData". It should extract the models and reformat the data 
 // MKD: this is will be refactored out
@@ -2092,15 +2068,15 @@ DataManager.prototype = {
 		 */
 		var faq	= this.state.svg
 			.append("svg:image")
-//			.attr("xlink:href", this.state.scriptpath + "../image/greeninfo30.png")
+			.attr("xlink:href", this.state.scriptpath + "../image/greeninfo30.png")
 			.attr("x",xoffset+foffset)
 			.attr("id","faqinfo")
 			.attr("width", this.state.faqImgSize)
 			.attr("height",this.state.faqImgSize)
-			.attr("font-family","FontAwesome")
-			.attr('font-size', function(d) { return '70px';} )
-			.text(function(d) {return 'test \uf083';})
-			//.attr("class","faq_img")
+//			.attr("font-family","FontAwesome")
+//			.attr('font-size', function(d) { return '70px';} )
+//			.text(function(d) {return 'test \uf083';})
+			.attr("class","faq_img")
 			.on("click", function(d) {
 				self._showDialog("faq");
 			});
@@ -2705,7 +2681,7 @@ DataManager.prototype = {
 			"<br/><strong>" + prefix + ":</strong> " + d.value[this.state.selectedCalculation].toFixed(2) + suffix +
 			"<br/><strong>Species: </strong> " + species + " (" + taxon + ")";
 
-		console.log(retData);
+//		console.log(retData);
 		this._updateDetailSection(retData, this._getXYPos(obj));
 	},
 
@@ -2789,11 +2765,13 @@ DataManager.prototype = {
 			// I need to pass this into the function
    		        .on("mouseover", function(d) {
 				this.parentNode.appendChild(this);
+				console.log("r:"+ self.state.selectedRow + " c:"+ self.state.selectedColumn);
 				// if this column and row are selected, clear the column/row and unset the column/row flag
 				if (self.state.selectedColumn !== undefined && self.state.selectedRow !== undefined) {
 					self.state.selectedColumn = undefined;
 					self.state.selectedRow = undefined;
 					self._deselectData();
+
 					if (this != self.state.currSelectedRect){
 						self._highlightIntersection(d, d3.mouse(this));
 						// put the clicked rect on the top layer of the svg so other events work
@@ -2926,7 +2904,10 @@ DataManager.prototype = {
 			//.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
 			.attr("transform","translate(252, " + (this.state.yModelRegion + 5) + ")")
 			.attr("x", 0) //12
-			.attr("y", function(d) {return self.state.yAxisRender.position(curr_data.source_id) * self.state.heightOfSingleCell; }) //rowid yID
+			.attr("y", function(d) {
+					var p = self.state.yAxisRender.position(curr_data.source_id);
+					console.log("position:"+p);
+				return  p * self.state.heightOfSingleCell; }) //rowid yID
 			.attr("class", "row_accent")
 			.attr("width", this.state.modelWidth - 4)
 			.attr("height", self.state.heightOfSingleCell);
@@ -2953,7 +2934,10 @@ DataManager.prototype = {
 		// create the related model rectangles
 		var highlight_rect2 = self.state.svg.append("svg:rect")
 			.attr("transform","translate(" + (self.state.textWidth + self.state.xOffsetOver + 34) + "," +self.state.yoffsetOver+ ")")
-			.attr("x", function(d) { return (self.state.xScale(curr_data.target_id) - 1);})  // xID
+			.attr("x", function(d) { 
+				var p = self.state.xScale(curr_data.target_id) - 1;
+				console.log("xscale:"+p);
+				return p;})  // xID
 			.attr("y", self.state.yoffset + 2 )
 			.attr("class", "model_accent")
 			.attr("width", self.state.heightOfSingleCell)
@@ -2987,9 +2971,11 @@ DataManager.prototype = {
 	 * Movecount is an integer and can be either positive or negative
 	 */
 	_updateCells: function(newXPos, newYPos){
-		var xSize = this.state.xAxisRender.size();
-		var ySize = this.state.yAxisRender.size();
+		var xSize = this.state.xAxisRender.groupSize();
+		var ySize = this.state.yAxisRender.groupSize();
+		var newXEndPos, newYEndPos;
 
+console.log("X:"+newXPos + " Y:"+newYPos);
 		if (newXPos > xSize){
 			this.state.currXIdx = xSize;
 		} else {
@@ -3002,7 +2988,21 @@ DataManager.prototype = {
 			this.state.currYIdx = newYPos;
 		}
 
+	
+		// note: that the currXIdx accounts for the size of the hightlighted selection area
+		// so, the starting render position is this size minus the display limit
+		console.log("curX:"+this.state.currXIdx + " curY:"+this.state.currYIdx);
+		this.state.xAxisRender.setRenderStartPos(this.state.currXIdx-this.state.targetDisplayLimit);
+		this.state.xAxisRender.setRenderEndPos(this.state.currXIdx);
+console.log("xaxis start:" + this.state.xAxisRender.getRenderStartPos() + " end:"+this.state.xAxisRender.getRenderEndPos());
+
+		this.state.yAxisRender.setRenderStartPos(this.state.currYIdx-this.state.sourceDisplayLimit);
+		this.state.yAxisRender.setRenderEndPos(this.state.currYIdx);
+
+console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:"+this.state.yAxisRender.getRenderEndPos());
 	//		this._filterDisplay();
+
+		this._buildRenderedMatrix();
 		this._clearXLabels();
 
 		this._createXRegion();
@@ -3089,11 +3089,9 @@ DataManager.prototype = {
 		var y =0;
 		if (!this.state.invertAxis) {
 			//list = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
-			//list = self.state.xAxisRender.getItemIDs();
 			list = self.state.xAxisRender.keys();
 		} else {
 			//list = self._getSortedIDListStrict(this.state.filteredYAxis.entries());
-			//list = self.state.yAxisRender.getItemIDs();
 			list = self.state.yAxisRender.keys();			
 		}
 
@@ -3276,7 +3274,6 @@ DataManager.prototype = {
 		var mods = [];
 
 		//	mods = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
-		//mods = this.state.xAxisRender.getItemIDs();
 		mods = this.state.xAxisRender.keys();
 
 		this.state.xScale = d3.scale.ordinal()
@@ -3593,6 +3590,7 @@ DataManager.prototype = {
 		var y = 0;
 		//list = self._getSortedIDListStrict(self.state.filteredYAxis.entries());
 		list = self.state.yAxisRender.entries(); //getItems();
+console.log(list);
 
 		var rect_text = this.state.svg
 			.selectAll(".a_text")
@@ -3614,6 +3612,7 @@ DataManager.prototype = {
 			.attr("x", 208)    // MAGIC NUM
 			.attr("y", function(d) {				
 				  y += 13;  
+				  console.log("y:"+y);
 				return y;  // 		self._getAxisData(d).ypos + 10;
 			})
 			.on("mouseover", function(d) {
@@ -3640,17 +3639,17 @@ DataManager.prototype = {
 	// MKD: should probably move this
 		this._buildUnmatchedSourceDisplay();
 
-		rect_text.transition()
-			.style('opacity', '1.0')
-			.delay(5);
+		// rect_text.transition()
+		// 	.style('opacity', '1.0')
+		// 	.delay(5);
 //			.attr("y", function(d) {
 //				return self.state.yAxisRender.getOrdinalPosition(d.id) + self.state.yoffsetOver + pad;    //self._getAxisData(d).ypos + self.state.yoffsetOver + pad;
 //			});
-		rect_text.exit()
-			.transition()
-			.delay(20)
-			.style('opacity', '0.0')
-			.remove();
+		// rect_text.exit()
+		// 	.transition()
+		// 	.delay(20)
+		// 	.style('opacity', '0.0')
+		// 	.remove();
 	},
 
 	_getUnmatchedSources: function(){
