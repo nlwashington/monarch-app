@@ -672,6 +672,12 @@ DataManager.prototype = {
 							// if (!this.state.hpoCacheBuilt && this.state.preloadHPO){
 							// 	this._getHPO(this._getConceptId(curr_row.a.id));
 							// }
+						} else {
+							this.source[sourceID_a].count += 1;
+							this.source[sourceID_a].sum += parseFloat(curr_row.lcs.IC);
+							
+							console.log('source count: ' + this.source[sourceID_a].count);
+							console.log('source sum' + this.source[sourceID_a].sum);
 						}
 
 						// update values for sorting
@@ -681,10 +687,6 @@ DataManager.prototype = {
 							//this.source[index].count += 1;
 							//this.source[index].sum += parseFloat(curr_row.lcs.IC);
 
-						if (typeof(srcElement) !== 'undefined') {
-							srcElement.count += 1;
-							srcElement.sum += parseFloat(curr_row.lcs.IC);
-						}
 
 						// building cell data points
 						dataVals = {"source_id": sourceID_a, "target_id": targetID, "value": lcs, 
@@ -1086,19 +1088,7 @@ DataManager.prototype = {
         /* remember, source = phenotype and target=model */
    	    var self = this;
 
-		// set default display limits based on displaying 30
-		if (this.state.dataManager.length("source") > this.state.dataDisplayCount) {
-			this.state.sourceDisplayLimit = this.state.dataDisplayCount;
-		} else {
-			this.state.sourceDisplayLimit = this.state.dataManager.length("source");
-		}
-
-		if (this.state.dataManager.length("target", self.state.targetSpeciesName) > this.state.dataDisplayCount) {
-			this.state.targetDisplayLimit = this.state.dataDisplayCount;
-		} else {
-			this.state.targetDisplayLimit = this.state.dataManager.length("target",self.state.targetSpeciesName);
-		}
-
+   	    self._setAxisDisplayLimits();
 
     	/* only do this if the group doesn't exist - don't
        	recreate on reload */
@@ -1124,6 +1114,21 @@ DataManager.prototype = {
 	       self.state.xAxisRender = self.state.targetAxis;
 	       self.state.yAxisRender= self.state.sourceAxis;
 	   }
+    },
+
+    _setAxisDisplayLimits: function() {
+    			// set default display limits based on displaying 30
+		if (this.state.dataManager.length("source") > this.state.dataDisplayCount) {
+			this.state.sourceDisplayLimit = this.state.dataDisplayCount;
+		} else {
+			this.state.sourceDisplayLimit = this.state.dataManager.length("source");
+		}
+
+		if (this.state.dataManager.length("target", this.state.targetSpeciesName) > this.state.dataDisplayCount) {
+			this.state.targetDisplayLimit = this.state.dataDisplayCount;
+		} else {
+			this.state.targetDisplayLimit = this.state.dataManager.length("target", this.state.targetSpeciesName);
+		}
     },
 
 	_loadSpinner: function() {
@@ -1275,8 +1280,10 @@ DataManager.prototype = {
 		var self = this;
 
 		// set the display counts on each axis
-	    var yCount = self.state.sourceDisplayLimit;  //   self.state.yAxisRender.size();
-	    var xCount = self.state.targetDisplayLimit;   // self.state.xAxisRender.size();
+	    var yCount = self.state.yAxisRender.size();  //self.state.sourceDisplayLimit;
+	    var xCount = self.state.xAxisRender.size();  //self.state.targetDisplayLimit;
+
+	    console.log("yCount: " + yCount + " xCount: " + xCount);
 
 	    // get the rendered starting point on axis
 		var startYIdx = self.state.yAxisRender.renderStartPos;    // this.state.currYIdx - yCount;
@@ -1296,7 +1303,7 @@ DataManager.prototype = {
 
 		// size of the entire region - it is a square
 		var overviewRegionSize = self.state.globalViewSize;
-		if (this.state.yAxisRender.size() < yCount) {  //groupSize
+		if (this.state.yAxisRender.groupSize() < yCount) {  //groupSize
 			overviewRegionSize = self.state.reducedGlobalViewSize;
 		}
 
@@ -1365,8 +1372,8 @@ DataManager.prototype = {
 		var selectRectY = self.state.smallYScale(startYId);
 		var selectRectHeight = self.state.smallYScale(lastYId);
 		var selectRectWidth = self.state.smallXScale(lastXId);
-		console.log("yRenderedSize:" + yRenderedSize +"xRenderedSize" +xRenderedSize +
-				 "selectRectX: " + selectRectX +  " selectRectY:" + selectRectY + 
+		console.log("yRenderedSize:" + yRenderedSize +" xRenderedSize" +xRenderedSize +
+				 " selectRectX: " + selectRectX +  " selectRectY:" + selectRectY + 
 			" selectRectHeight:" + selectRectHeight + " selectRectWidth:" + selectRectWidth);
 
 		self.state.highlightRect = self.state.svg.append("rect")
@@ -1557,6 +1564,8 @@ DataManager.prototype = {
    	    sourceList = self.state.yAxisRender.groupIDs();
 	    targetList = self.state.xAxisRender.groupIDs();
 
+	    console.log("source len: " + sourceList.length);
+	    console.log("target len: " + targetList.length);
 
 		this.state.smallYScale = d3.scale.ordinal()
 			.domain(sourceList.map(function (d) {return d; }))
@@ -2303,7 +2312,7 @@ DataManager.prototype = {
 		var highlight_rect = self.state.svg.append("svg:rect")
 			.attr("transform","translate(" + (self.state.textWidth + self.state.xOffsetOver + 32) + "," + self.state.yoffsetOver + ")")
 			.attr("x", function(d) { return (self.state.xScale(data) - 1);})
-			.attr("y", self.state.yoffset +2) 
+			.attr("y", self.state.yoffset + 5) 
 			.attr("class", "model_accent")
 			.attr("width", 15 * appearanceOverrides.offset)
 			.attr("height", (sourceDisplayCount * self.state.heightOfSingleCell));
@@ -2726,7 +2735,7 @@ DataManager.prototype = {
 			});
 		cell_rects.enter()
 			.append("rect")
-			.attr("transform","translate(253, " + (this.state.yModelRegion + 5) + ")")
+			.attr("transform","translate(254, " + (this.state.yModelRegion + 5) + ")")
 			.attr("class", function(d) { 
 				var dConcept = (d.target_id + d.source_id);   //(d.xID + d.yID);
 				var cellConcept = self._getConceptId(d.target_id);  //d.xID);
@@ -2749,7 +2758,7 @@ DataManager.prototype = {
 			// I need to pass this into the function
    		        .on("mouseover", function(d) {
 				this.parentNode.appendChild(this);
-				console.log("r:"+ self.state.selectedRow + " c:"+ self.state.selectedColumn);
+				//console.log("r:"+ self.state.selectedRow + " c:"+ self.state.selectedColumn);
 				// if this column and row are selected, clear the column/row and unset the column/row flag
 				if (self.state.selectedColumn !== undefined && self.state.selectedRow !== undefined) {
 					self.state.selectedColumn = undefined;
@@ -2885,7 +2894,7 @@ DataManager.prototype = {
 		// Highlight Row
 		var highlight_rect = self.state.svg.append("svg:rect")
 			//.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
-			.attr("transform","translate(252, " + (this.state.yModelRegion + 5) + ")")
+			.attr("transform","translate(254, " + (this.state.yModelRegion + 5) + ")")
 			.attr("x", 0) //12
 			.attr("y", function(d) {
 					var p = self.state.yAxisRender.position(curr_data.source_id);
@@ -2897,7 +2906,7 @@ DataManager.prototype = {
 
 		this.state.selectedRow = curr_data.source_id;  //yID;
 		this.state.selectedColumn = curr_data.target_id;    //xID;
-		this._resetLinks();
+		//this._resetLinks();
 
 		/*
 		 * To get the phenotype label from the selected rect data, we need to concat the phenotype ids to the model id 
@@ -3487,7 +3496,7 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 		    self.state.invertAxis = !self.state.invertAxis;
 		    self._resetSelections("axisflip");
 		    self._setAxisRenderers();
-		    //self._createAxisRenderingGroups();
+		    self._setAxisDisplayLimits();
 		    self._processDisplay();
 
 		});
