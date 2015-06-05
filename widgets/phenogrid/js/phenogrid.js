@@ -356,6 +356,7 @@ DataManager.prototype = {
 		this.target = []; // modelList
 		this.expandedCache = [];   
 		this.cellData = []; 
+		this.matrix = [];
 		this.owlsimsData = [];			// raw owlsim
 		this.origSourceList;
 		this.initialized = false;
@@ -458,6 +459,37 @@ DataManager.prototype = {
 		}
 		return match;
 	},
+	matches: function (key, species) {
+		var matchList = [], rec = null;
+		for (var i=0; i < this.cellData[species].length; i++) {
+			var cellIdSource = this.cellData[species][i].source_id;
+			var cellIdTarget = this.cellData[species][i].target_id;
+			if ( cellIdSource== key) {				
+				rec = this.cellData[species][i];
+				matchList.push(rec);
+			} else if (cellIdTarget == key) {
+				rec = this.cellData[species][i];
+				matchList.push(rec);
+			}
+		}
+		return matchList;
+	},
+
+	match: function (key, species) {
+		var rec = null;
+		for (var i=0; i < this.cellData[species].length; i++) {
+			var cellIdSource = this.cellData[species][i].source_id;
+			var cellIdTarget = this.cellData[species][i].target_id;
+			if ( cellIdSource== key) {				
+				rec = this.cellData[species][i];
+				break;
+			} else if (cellIdTarget == key) {
+				rec = this.cellData[species][i];
+				break;
+			}
+		}
+		return rec;
+	},
 	/*
 		Function: keys
 			returns a list of key (id) values from a given dataset
@@ -471,13 +503,6 @@ DataManager.prototype = {
 	keys: function (dataset) {
 		var a = this[dataset];
 		return Object.keys(a);		// Object.keys(this.target["Homo sapiens"])
-		// var keys = [];
-		// var len = eval('this.' + dataset + '.length');
-		// for (var i=0; i < len; i++) {
-		// 	var id = eval('this.' + dataset + '['+i+'].id');
-		// 	keys.push(id);
-		// }
-		// return keys;
 	},
 
 	/*
@@ -592,6 +617,7 @@ DataManager.prototype = {
 			if (typeof (res) !=='undefined' && res !== null) {
 				// now transform data to there basic data structures
 				this.transform(res, speciesName[i].name);  
+				this.createMatrix(speciesName[i].name);
 			}
 		}
 
@@ -618,7 +644,7 @@ DataManager.prototype = {
 				this.parent.state.maxICScore = data.metadata.maxMaxIC;
 			}
 			this.cellData[species] = [];
-			this.target[species] = [];
+			this.target[species] = [];			
 
 			var variantNum = 0;
 			for (var idx in data.b) {
@@ -676,8 +702,8 @@ DataManager.prototype = {
 							this.source[sourceID_a].count += 1;
 							this.source[sourceID_a].sum += parseFloat(curr_row.lcs.IC);
 							
-							console.log('source count: ' + this.source[sourceID_a].count);
-							console.log('source sum' + this.source[sourceID_a].sum);
+							// console.log('source count: ' + this.source[sourceID_a].count);
+							// console.log('source sum' + this.source[sourceID_a].sum);
 						}
 
 						// update values for sorting
@@ -702,6 +728,70 @@ DataManager.prototype = {
 			}
 		}
 	},
+	createMatrix: function(species) {
+
+		this.matrix[species] = {};
+
+		var sourceList = Object.keys(this.source);
+		var targetList = Object.keys(this.target[species]);
+		// loop through the source/target to build matrix
+		for(var s=0; s < sourceList.length; s++) {
+			for(var t=0; t < targetList.length; t++) {
+				var cellMatch = this.cellPointMatch(sourceList[s], targetList[t], species);
+				if (typeof (cellMatch) !== 'undefined') {
+					var src = cellMatch.source_id,
+					tar = cellMatch.target_id, key;
+					key = src + '-' + tar;
+					this.matrix[species][key] = {source_id: src, target_id: tar, value: cellMatch.value};
+		 		}			 		
+			}
+		}
+	},
+	buildMatrix: function(sourceList, targetList, species, inverted) {
+		this.matrix = [];
+		console.log ("building matrix...");
+
+		// loop through the rendered source/target to build matrix
+		for(var s=0; s < sourceList.length; s++) {
+			for(var t=0; t < targetList.length; t++) {
+				var cellMatch = this.cellPointMatch(sourceList[s], targetList[t], species);
+
+				if (typeof (cellMatch) !== 'undefined') {
+					var source, target;
+
+					if (inverted){
+						source = cellMatch.target_id;
+						target = cellMatch.source_id;
+					} else {
+						source = cellMatch.source_id;
+						target = cellMatch.target_id;
+		 			}			 			
+		 			var coords = {xpos: t, ypos: s};
+			 		
+		 			// update cell source/target
+		 			cellMatch.source_id = source;
+					cellMatch.target_id = target;
+
+					var match = {source_id: cellMatch.source_id, target_id: cellMatch.target_id, species: cellMatch.species};
+
+		 			var rec = $.extend({}, match, coords); 
+					this.matrix.push(rec);
+		 		}
+			}
+		}
+	},
+	matrixArray: function(species) {
+		var keys = Object.keys(this.matrix[species]);
+		var a = [];
+		// loop through get element
+		for (var m in keys) {
+			var key = keys[m];
+			var el = this.matrix[species][key] ;
+			a.push(el);
+		}
+		return a;
+	},
+
 	/*
 		Function: reinitialize
 
@@ -758,7 +848,7 @@ DataManager.prototype = {
 		smallestModelWidth: 400,
 		textLength: 34,
 		textWidth: 200,
-		w : 0,
+		w : 720,
 		headerAreaHeight: 160,
 		comparisonTypes: [ { organism: "Homo sapiens", comparison: "diseases"}],
 		defaultComparisonType: { comparison: "genes"},
@@ -790,7 +880,9 @@ DataManager.prototype = {
 		invertAxis: false,
 		dummyModelName: "dummy",
 		simServerURL: "",  // URL of the server for similarity searches
-		preloadHPO: false	// Boolean value that allows for preloading of all HPO data at start.  If false, the user will have to manually select what HPO relations to load via hoverbox.
+		preloadHPO: false,	// Boolean value that allows for preloading of all HPO data at start.  If false, the user will have to manually select what HPO relations to load via hoverbox.
+		titleOffsets: [{"main": {x:220, y:5}, "disease": {x:0, y:100}}],
+		gridRegion: [{x:254, y:300}]
 	},
 
 	internalOptions: {
@@ -990,23 +1082,6 @@ DataManager.prototype = {
 		this.element.empty();
 		this._loadSpinner();
 
-//MKD: may be able to eliminate, restricts how many pheno are displayed
-		this.state.sourceDisplayLimit = this._calcYAxisDisplayLimit();
-
-//MKD: NOT SURE THE POINT OF THIS YET
-		if (typeof this.state.owlSimFunction === 'undefined'){
-			this.state.owlSimFunction = 'search';
-		} else if (this.state.owlSimFunction === 'compare' || this.state.owlSimFunction == 'exomiser'){
-			this.state.targetSpeciesName = "Homo sapiens";
-		} 
-
-//MKD: refactor the hashtables out
-		if (!this.state.hpoCacheBuilt){
-			this.state.hpoCacheHash = new Hashtable();
-			this.state.hpoCacheLabels = new Hashtable();
-		}
-		this.state.expandedHash = new Hashtable();  // for cache of genotypes
-
 		// target species name might be provided as a name or as taxon. Make sure that we translate to name
 		this.state.targetSpeciesName = this._getTargetSpeciesNameByTaxon(this,this.state.targetSpeciesName);
 //		this.state.phenotypeData = this._parseQuerySourceList(this.state.phenotypeData);
@@ -1031,10 +1106,11 @@ DataManager.prototype = {
 		// dataManager fetch will initialize source and target data
 		this.state.dataManager.fetch(querySourceList, listofTargetSpecies);
 
-		//TEMP CODE TESTING: force 1 species for testing
+//TEMP CODE TESTING: force 1 species for testing
 		this.state.targetSpeciesName = "Homo sapiens";
 
-		//this._loadData();   // MKD: datamanager.fetch will replace this
+	    // initialize axis groups
+	    this._createAxisRenderingGroups();
 
 		this._initDefaults();   //MKD: refactor
 
@@ -1063,14 +1139,9 @@ DataManager.prototype = {
 	    this._setSelectedCalculation(this.state.selectedCalculation);
 		this._setDefaultSelectedSort(this.state.selectedSort);
 
-
-		this.state.w = this.state.m[1] - this.state.m[3];  // 'w' name needs refactored, it unclear what this is for here
-
 		// shorthand for top of model region
 		this.state.yModelRegion = this.state.yoffsetOver + this.state.yoffset;
 
-	    // initialize axis groups
-	    this._createAxisRenderingGroups();
 	    
 //MKD: move to rendering code??    	
 		this._createColorScale();  
@@ -1114,6 +1185,9 @@ DataManager.prototype = {
 	       self.state.xAxisRender = self.state.targetAxis;
 	       self.state.yAxisRender= self.state.sourceAxis;
 	   }
+
+    	//self.state.dataManager.buildMatrix(self.state.yAxisRender.keys(),  self.state.xAxisRender.keys(), 
+    	//		self.state.targetSpeciesName, self.state.invertAxis);	   
     },
 
     _setAxisDisplayLimits: function() {
@@ -1137,41 +1211,24 @@ DataManager.prototype = {
 		element.appendTo(this.state.svgContainer);
 	},
 
+	
 	_reDraw: function() {
+		var self = this;
 		if (this.state.dataManager.isInitialized()) {
 			var displayRangeCount = this.state.yAxisRender.size();
 
-			this._setComparisonType();
 			this._initCanvas();
-			this._addLogoImage();
 
-			this.state.svg
-				.attr("width", "100%")
-				.attr("height", displayRangeCount * this.state.widthOfSingleCell);
-			var rectHeight = this._createRectangularContainers();
+//			var rectHeight = this._createRectangularContainers();
+
+//			this._createXRegion();
+			// this._createYRegion();
+			// self._createGridlines();
+//			self._createCellRects();
 
 
-			this._addPhenogridControls();
+			this._createGrid();
 
-			this._createXRegion();
-			this._createYRegion();
-			this._updateAxes();
-
-			this._addGradients();
-			
-			this._createGridlines();
-			this._createCellRects();
-			this._createSpeciesBorderOutline();	
-			
-			this._createOverviewSection();
-
-			var height = rectHeight + 40;
-
-			// [vaa12] 15 prevents the control panel from overlapping the grid. Find way to remove magic num
-			var containerHeight = height + 15;
-			$("#svg_area").css("height",height);
-			$("#svg_container").css("height",containerHeight);
-			
 			// this must be initialized here after the _createModelLabels, or the mouse events don't get
 			// initialized properly and tooltips won't work with the mouseover defined in _convertLableHTML
 			stickytooltip.init("*[data-tooltip]", "mystickytooltip");
@@ -1181,15 +1238,121 @@ DataManager.prototype = {
 				this._createSvgContainer();
 				this._createEmptyVisualization(msg);
 		}
-		// COMPARE CALL HACK - REFACTOR OUT
-		// no organism selector if we are doing the 'compare' function
-		if (this.state.owlSimFunction === 'compare' || this.state.owlSimFunction === 'exomiser'){
-			this.state.svg.select("#specieslist").remove();
-			this.state.svg.select("#faqinfo").remove();
-			$("#org_div").remove();
-		}
+
 	},
 
+	_createGrid: function() {
+		var self = this;
+		var xvalues = this.state.xAxisRender.keys();
+		var yvalues = this.state.yAxisRender.keys();
+
+		this.state.xScale = d3.scale.ordinal()
+		.domain(xvalues.map(function (d) {return d; }))
+		.rangeRoundBands([0, xvalues.length]);
+
+		this.state.yScale = d3.scale.ordinal()	
+		.domain(yvalues.map(function (d) { return d; }))
+		.range([0, yvalues.length])
+		.rangePoints([0, yvalues.length]);
+
+/**/
+		var matrix = []; //this.state.dataManager.matrixArray(this.state.targetSpeciesName);
+
+		yvalues.forEach(function(d, i) {
+			var results = self.state.dataManager.matches(d, self.state.targetSpeciesName);
+			if (results != null ) {
+				var list = [];
+				for (var a in results) {
+					var	yPos = self.state.yAxisRender.position(results[a].source_id);
+ 					var	xPos = self.state.xAxisRender.position(results[a].target_id);	
+					if (yPos > -1 && xPos > -1) {  // if > -1 , then it's in the viewable rendered range	 					
+ 						var rec = {source_id: results[a].source_id, target_id: results[a].target_id, xpos: xPos, 
+ 									ypos: yPos, species: results[a].species};
+ 						list.push(rec);
+ 					}
+ 				}
+				matrix.push(list);
+			}
+		});
+
+
+		var gridxoffset=255, gridyoffset = 150, gridypadding=12, gridxpadding=20;
+
+		// create a row, the matrix contains an array of rows (yscale) with an array of columns (xscale)
+		var row = this.state.svg.selectAll(".row")
+  			.data(matrix)
+		.enter().append("g")
+  			.attr("class", "row")
+  			.attr("transform", function(d, i) { 
+  				console.log(d);
+  				return "translate(" + gridxoffset +"," + (gridyoffset+self.state.yScale(i)*gridypadding) + ")"; })
+  			.each(createrow);
+
+	  	row.append("text")
+			.attr("class", "grid_labels")	  	
+	      	.attr("x", -6)
+	      	.attr("y",  function(d, i) {
+	      			 var rb = self.state.yScale.rangeBand(i)/2;
+	      			 return rb;
+	      			 })  
+	      .attr("dy", ".60em")  
+	      .attr("text-anchor", "end")
+	      .text(function(d, i) { 
+	      	var el = self.state.yAxisRender.itemAt(i);
+	      	console.log(JSON.stringify(el));
+	      	return self._getShortLabel(el.label); });
+
+	    // create columns using the xvalues (targets)
+	  	var column = this.state.svg.selectAll(".column")
+	      .data(xvalues)
+	    .enter().append("g")
+	      .attr("class", "column")
+	      .attr("transform", function(d, i) { 
+	      	var p = self.state.xScale(i);
+	      	console.log('p:' + p  + ' d:'+JSON.stringify(d));
+	      	return "translate(" + (gridxoffset+self.state.xScale(i)*gridxpadding) + "," + (gridyoffset-5) + ")rotate(-45)"; });
+
+	  	column.append("text")
+	  		.attr("class", "grid_labels")
+	      	.attr("x", 0)
+	      	.attr("y", self.state.xScale.rangeBand()+2)
+		    .attr("dy", ".32em")
+	      	.attr("text-anchor", "start")
+	      		.text(function(d, i) { 		      	
+				var el = self.state.xAxisRender.itemAt(i);
+					//console.log('d:'+JSON.stringify(d));
+	      		return self._getShortLabel(el.label); });
+
+
+		function createrow(row) {
+		 	var self = this;
+		    var cell = d3.select(self).selectAll(".cell")
+		        .data(row)
+		      .enter().append("rect")
+		        .attr("class", "cell")
+		        .attr("x", function(d) { 
+		        		return d.xpos * 20; })
+		        .attr("width", 10)
+		        .attr("height", 10)
+				.attr("rx", "3")
+				.attr("ry", "3")			        
+		        //.style("fill-opacity", function(d) { return z(d.z); })
+		        .style("fill", function(d) { 
+		        		console.log('color d:'+ JSON.stringify(d));
+			        	return "black"; })
+		        .on("mouseover", mouseover)
+		        .on("mouseout", mouseout);
+		}
+
+	  	function mouseover(p) {
+		    d3.selectAll(".row text").classed("active", function(d, i) { return i == p.y; });
+				d3.selectAll(".column text").classed("active", function(d, i) { return i == p.x; });
+		  }
+
+			function mouseout() {
+			d3.selectAll("text").classed("active", false);
+		}
+	},
 
 	/* dummy option procedures as per 
 	 * http://learn.jquery.com/jquery-ui/widget-factory/how-to-use-the-widget-factory/
@@ -1267,7 +1430,7 @@ DataManager.prototype = {
 			.enter()
 			.append("rect")
 			.attr("id","gridline")
-			.attr("transform","translate(252, " + (this.state.yModelRegion + 5) + ")")
+			.attr("transform","translate(" + ((self.state.gridRegion[0].x)-2) + "," + ((self.state.gridRegion[0].y)-1)+ ")") 	//252, " + (this.state.yModelRegion + 5) + ")")
 			.attr("x", function(d,i) { return d[1] * mWidth;})
 			.attr("y", function(d,i) { return d[0] * mHeight;})
 			.attr("class", "hour bordered deselected")
@@ -1467,6 +1630,13 @@ DataManager.prototype = {
 		return selectedScale(score);
 	},
 
+	_getColorForCellValue2: function(self, data) {
+		// This is for the new "Overview" target option
+		var selectedScale = self.state.colorScale[data.species][self.state.selectedCalculation];
+		return selectedScale(data.score);
+	},
+
+
 	_createModelScoresLegend: function() {
 		var self = this;
 		var scoreTipY = self.state.yoffset;
@@ -1505,8 +1675,12 @@ DataManager.prototype = {
 
 	_createDiseaseTitleBox: function() {
 		var self = this;
-		var dTitleYOffset = self.state.yoffset - self.state.gridTitleYOffset/2;
-		var dTitleXOffset = self.state.colStartingPos;
+		// var dTitleYOffset = self.state.yoffset - self.state.gridTitleYOffset/2;
+		// var dTitleXOffset = self.state.colStartingPos;
+
+		var x = self.state.titleOffsets[0]["disease"].x,
+			y = self.state.titleOffsets[0]["disease"].y;
+
 		var title = document.getElementsByTagName("title")[0].innerHTML;
 		var dtitle = title.replace("Monarch Disease:", "");
 
@@ -1519,9 +1693,9 @@ DataManager.prototype = {
 			.attr("width", 205)
 			.attr("height", 50)
 			.attr("id","diseasetitle")
-			.attr("transform","translate(" + dTitleXOffset + "," + dTitleYOffset + ")")
-			.attr("x", 0)
-			.attr("y", 0)
+			//.attr("transform","translate(" + dTitleXOffset + "," + dTitleYOffset + ")")
+			.attr("x", x)
+			.attr("y", y)
 			.append("xhtml:div")
 			.html(shortDis);
 	},
@@ -1654,8 +1828,8 @@ DataManager.prototype = {
 
 	// Previously processSelected
 	_processDisplay: function(){
-		this._buildRenderedMatrix();
-		this.state.unmatchedSources = this._getUnmatchedSources();
+//		this._buildRenderedMatrix();
+//		this.state.unmatchedSources = this._getUnmatchedSources();
 		this.element.empty();
 		this._reDraw();
 	},
@@ -1990,9 +2164,12 @@ DataManager.prototype = {
 		this._createSvgContainer();
 		var svgContainer = this.state.svgContainer;
 		svgContainer.append("<svg id='svg_area'></svg>");
-		this.state.svg = d3.select("#svg_area");
-		this._addGridTitle();
-		this._createDiseaseTitleBox();
+		this.state.svg = d3.select("#svg_area")
+				.attr("width", "100%")
+				.attr("height", 600);//displayRangeCount * this.state.widthOfSingleCell);
+
+		 this._addGridTitle();
+		 this._createDiseaseTitleBox();
 		
 	},
 
@@ -2050,6 +2227,10 @@ DataManager.prototype = {
 		// set up defaults as if overview
 		var xoffset = this.state.overviewGridTitleXOffset;
 		var foffset = this.state.overviewGridTitleFaqOffset;
+
+		var x = this.state.titleOffsets[0]["main"].x,
+			y = this.state.titleOffsets[0]["main"].y;
+
 		var titleText = "Cross-Species Overview";
 
 		if (this.state.targetSpeciesName !== "Overview") {
@@ -2067,8 +2248,8 @@ DataManager.prototype = {
 		var mtitle = this.state.svg.append("svg:text")
 			.attr("class","gridtitle")
 			.attr("id","toptitle2")
-			.attr("x",xoffset)
-			.attr("y",this.state.gridTitleYOffset)
+			.attr("x",x) 		//xoffset)
+			.attr("y", y)		//this.state.gridTitleYOffset)
 			.text(titleText);
 
 		/*
@@ -2535,18 +2716,21 @@ DataManager.prototype = {
 		label = this._decodeHtmlEntity(label);
 
 		p.append("text")
-			.attr('x', x + 15)
+			.attr('x', function(d) {
+				var p = self._getAxisDataPosition(d);
+				var x = p * self.state.widthOfSingleCell;  //x += 15;
+				return x;})
 			.attr('y', y)
 			.attr("width", width)
-			.attr("id", this._getConceptId(data))
+			.attr("id", self._getConceptId(data))
 			.attr("model_id", data)
 			.attr("height", 60)
 			.attr("transform", function(d) {
 				return "rotate(-45)";
 			})
-			.on("click", function(d) {
-				self._clickItem(self.state.serverURL,data);
-			})
+			//.on("click", function(d) {
+			//	self._clickItem(self.state.serverURL,data);
+			//})
 			.on("mouseover", function(d, event) {  
 				self._selectXItem(data, this);
 			})
@@ -2556,7 +2740,7 @@ DataManager.prototype = {
 			.attr("class", this._getConceptId(data) + " model_label")
 			// this activates the stickytool tip			
 			.attr("data-tooltip", "sticky1")   			
-			.style("font-size", "12px")
+			//.style("font-size", "12px")
 			//.style("font-weight", "bold")
 			.style("fill", this._getExpandStyling(data))
 			// don't show the label if it is a dummy.
@@ -2727,7 +2911,25 @@ DataManager.prototype = {
 	 */
 	_createCellRects: function() {
 		var self = this;
-		var data = this.state.filteredCellData;
+		//var data = this.state.filteredCellData;
+		//var data = this.state.dataManager.getData("matrix");
+		var data = []; 
+		yvalues.forEach(function(d, i) {
+				var results = self.state.dataManager.matches(d, self.state.targetSpeciesName);
+				if (results != null ) {
+					var list = [];
+					for (var a in results) {
+						var	yPos = self.state.yAxisRender.position(results[a].source_id);
+	 					var	xPos = self.state.xAxisRender.position(results[a].target_id);	
+	 					var rec = {source_id: results[a].source_id, target_id: results[a].target_id, xpos: xPos, 
+	 									ypos: yPos, species: results[a].species};
+	 					list.push(rec);
+	 				}
+					matrix.push(list);
+				}
+		});
+
+
 	  	var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
 		var cell_rects = this.state.svg.selectAll(".cells")
 			.data( data, function(d) {
@@ -2735,58 +2937,55 @@ DataManager.prototype = {
 			});
 		cell_rects.enter()
 			.append("rect")
-			.attr("transform","translate(254, " + (this.state.yModelRegion + 5) + ")")
+			.attr("transform","translate(" + self.state.gridRegion[0].x + "," + self.state.gridRegion[0].y+ ")")						//254, " + (this.state.yModelRegion + 5) + ")")
 			.attr("class", function(d) { 
 				var dConcept = (d.target_id + d.source_id);   //(d.xID + d.yID);
 				var cellConcept = self._getConceptId(d.target_id);  //d.xID);
 				// append the model id to all related items
-				if(d.value[self.state.selectedCalculation] > 0) {
-					var bla = self.state.svg.selectAll(".data_text." + dConcept);
-					bla.classed(cellConcept, true);
-				}
-            	return "cells " + " " + cellConcept + " " + dConcept;
+				// if(d.value[self.state.selectedCalculation] > 0) {
+				// 	var bla = self.state.svg.selectAll(".data_text." + dConcept);
+				// 	bla.classed(cellConcept, true);
+				// }
+            	return "cells " + " " + dConcept;
 			})
 			.attr("y", function(d, i) { 
-
-			    //console.log(i+", "+d.source_id+", "+d.target_id);
 			    return d.ypos * self.state.heightOfSingleCell;})  //self._getAxisData(d.yID).ypos + self.state.yoffsetOver;			
-			.attr("x", function(d) { return self.state.xScale(d.target_id);})		//xID);})
+			.attr("x", function(d) { 
+				return d.xpos * self.state.widthOfSingleCell;})		//xID);})
 			.attr("width", 10)
 			.attr("height", 10)
 			.attr("rx", "3")
 			.attr("ry", "3")
-			// I need to pass this into the function
-   		        .on("mouseover", function(d) {
-				this.parentNode.appendChild(this);
-				//console.log("r:"+ self.state.selectedRow + " c:"+ self.state.selectedColumn);
-				// if this column and row are selected, clear the column/row and unset the column/row flag
-				if (self.state.selectedColumn !== undefined && self.state.selectedRow !== undefined) {
-					self.state.selectedColumn = undefined;
-					self.state.selectedRow = undefined;
-					self._deselectData();
+   // 		        .on("mouseover", function(d) {
+			// 	this.parentNode.appendChild(this);
+			// 	// if this column and row are selected, clear the column/row and unset the column/row flag
+			// 	if (self.state.selectedColumn !== undefined && self.state.selectedRow !== undefined) {
+			// 		self.state.selectedColumn = undefined;
+			// 		self.state.selectedRow = undefined;
+			// 		self._deselectData();
 
-					if (this != self.state.currSelectedRect){
-						self._highlightIntersection(d, d3.mouse(this));
-						// put the clicked rect on the top layer of the svg so other events work
-						//???this.parentNode.appendChild(this);
-						self._enableRowColumnRects(this);
-						// set the current selected rectangle
-						self.state.currSelectedRect = this;
-					}
-				} else {
-					self._highlightIntersection(d, d3.mouse(this));
-					self._enableRowColumnRects(this);
-					self.state.currSelectedRect = this;
-				}
-			    self._showCellData(d, this);
-			})
-			.on("mouseout", function(d) {
-				self._deselectData(data);
-			})
+			// 		if (this != self.state.currSelectedRect){
+			// 			self._highlightIntersection(d, d3.mouse(this));
+			// 			// put the clicked rect on the top layer of the svg so other events work
+			// 			//???this.parentNode.appendChild(this);
+			// 			self._enableRowColumnRects(this);
+			// 			// set the current selected rectangle
+			// 			self.state.currSelectedRect = this;
+			// 		}
+			// 	} else {
+			// 		self._highlightIntersection(d, d3.mouse(this));
+			// 		self._enableRowColumnRects(this);
+			// 		self.state.currSelectedRect = this;
+			// 	}
+			//     self._showCellData(d, this);
+			// })
+			// .on("mouseout", function(d) {
+			// 	self._deselectData(data);
+			// })
 			.style('opacity', '1.0')
 		.attr("fill", function(d) {
 			var colorID = d[colorSelector];
-			return self._getColorForCellValue(self,self._getAxisData(colorID).species,d.value[self.state.selectedCalculation]);
+			return self._getColorForCellValue2(self, self._getAxisData(colorID));  //.species,d.value[self.state.selectedCalculation]);
 		});
 		cell_rects.transition()
 			.delay(20)
@@ -2795,7 +2994,7 @@ DataManager.prototype = {
 				return d.ypos * self.state.heightOfSingleCell;     //self._getAxisData(d.yID).ypos - 10; // rowid
 			})
 			.attr("x", function(d) { 
-				return self.state.xScale(d.target_id);  //xID);
+				return d.xpos * self.state.widthOfSingleCell;  //xID);
 			});
 		cell_rects.exit().transition()
 			.style('opacity', '0.0')
@@ -3262,21 +3461,21 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 	// Previously _createModelRegion
 	_createXRegion: function () {
 		var self = this;
-		var mods = [];
+		var targets = [];
 
 		//	mods = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
-		mods = this.state.xAxisRender.keys();
+		targets = this.state.xAxisRender.keys();
 
 		this.state.xScale = d3.scale.ordinal()
-			.domain(mods.map(function (d) {return d; }))
+			.domain(targets.map(function (d) {return d; }))
 			.rangeRoundBands([0,this.state.modelWidth]);
 
-		this._createXLabels(self,mods);
+		this._createXLabels(self,targets);
 		this._createXLines();
 		//[vaa12] These now darken when mini-map is moved
 		if (!this.state.invertAxis) {
 			this._createTextScores();
-			this._createModelScoresLegend();
+//			this._createModelScoresLegend();
 		}
 		if (this.state.owlSimFunction != 'compare' && this.state.owlSimFunction != 'exomiser'){
 			this._createOverviewSpeciesLabels();

@@ -418,6 +418,13 @@ body {
 	background-color: white;
 }
 
+.grid_labels {
+	font: 11px arial;
+}
+
+#line {
+  stroke: #fff;
+}
 /*.spinner {
 	background: url('/widgets/phenogrid/image/throbber.gif') no-repeat;
 	top: 10px;
