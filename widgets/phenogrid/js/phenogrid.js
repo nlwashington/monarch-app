@@ -440,41 +440,52 @@ DataManager.prototype = {
 		Returns:
 			match - matching object
 	*/
-	cellPointMatch: function (key1, key2, species) {
-		var match, rec = null;
-		for (var i=0; i < this.cellData[species].length; i++) {
-			var cellIdSource = this.cellData[species][i].source_id;
-			var cellIdTarget = this.cellData[species][i].target_id;
-			if ( cellIdSource== key1 && cellIdTarget == key2) {				
-				rec = this.cellData[species][i];
-				break;
-			} else if (cellIdSource == key2 && cellIdTarget == key1) {
-				rec = this.cellData[species][i];
-				break;
+         cellPointMatch: function (key1, key2, species) {
+
+	     var rec= null;
+	     if (typeof(this.cellData[species]) !== 'undefined') {
+		 if (typeof(this.cellData[species][key1]) !== 'undefined') {
+		     if (typeof (this.cellData[species][key1][key2]) !== 'undefined') {
+			 rec = this.cellData[species][key1][key2];
+		     }
+		 } else if (typeof(this.cellData[species][key2]) !== 'undefined') {
+		     if (typeof(this.cellData[species][key2][key1]) !== 'undefined') {
+			 rec = this.cellData[species][key2][key1];
+		     }
+		 }
+	     }
+	     return rec
+	 },
+
+        // list of everything tht matches key - either as source or target.
+        // two possibilities - either key is a source, in which case I get the whole list
+        // or its a target, in which case I look in each source... 
+        matches: function (key, species) {
+	    var matchList = [];
+	    var cd= this.cellData; // convenience pointer. Good for scoping
+	    if (typeof (cd[species]) != 'undefined')  {
+		// it's  a source. grab all of them
+		if (typeof (cd[species][key]) !=='undefined') {
+		    matchList = Object.keys(cd[species][key]).map(
+			function(k) {return cd[species][key][k];});
+		}
+		else {
+		    /// it's a target. find the entry for each source.
+		    srcs = Object.keys(cd[species]);
+		    for (i in srcs) {
+			var src = srcs[i];
+			if (typeof(cd[species][src]) !== 'undefined') {
+			    if (cd[species][src][key] != 'undefined') {
+				matchList.push(cd[species][src][key]);
+			    }
 			}
+		    }
 		}
-		if (rec != null) {
-			// this makes a copy of records, otherwises it would return by reference
-			match = $.extend({}, rec);  
-		}
-		return match;
-	},
-	matches: function (key, species) {
-		var matchList = [], rec = null;
-		for (var i=0; i < this.cellData[species].length; i++) {
-			var cellIdSource = this.cellData[species][i].source_id;
-			var cellIdTarget = this.cellData[species][i].target_id;
-			if ( cellIdSource== key) {				
-				rec = this.cellData[species][i];
-				matchList.push(rec);
-			} else if (cellIdTarget == key) {
-				rec = this.cellData[species][i];
-				matchList.push(rec);
-			}
-		}
-		return matchList;
+	    }
+	    return matchList;
 	},
 
+        /** DON't think I need this
 	match: function (key, species) {
 		var rec = null;
 		for (var i=0; i < this.cellData[species].length; i++) {
@@ -489,7 +500,9 @@ DataManager.prototype = {
 			}
 		}
 		return rec;
-	},
+		},***/
+
+    
 	/*
 		Function: keys
 			returns a list of key (id) values from a given dataset
@@ -667,8 +680,13 @@ DataManager.prototype = {
 				}
 				
 				// build the target list
-				var t = {"id":targetID, "label": item.label, "species": item.taxon.label, "taxon": item.taxon.id, "type": type, 
-								"rank": parseInt(idx), "score": item.score.score};  
+				var t = {"id":targetID, 
+					 "label": item.label, 
+					 "species": item.taxon.label, 
+					 "taxon": item.taxon.id, 
+					 "type": type, 
+					 "rank": parseInt(idx), 
+					 "score": item.score.score};  
 				this.target[species][targetID] = t;
 
 				var matches = data.b[idx].matches;
@@ -720,9 +738,14 @@ DataManager.prototype = {
 									"subsumer_IC": parseFloat(curr_row.lcs.IC), "b_label": curr_row.b.label, 
 									"species": item.taxon.label,
 									"b_id": currID_b, "b_IC": parseFloat(curr_row.b.IC),
-									"rowid": sourceID_a + "_" + currID_lcs};						
-
-						this.cellData[species].push(dataVals);
+							    "rowid": sourceID_a + "_" + currID_lcs};						
+					    if (typeof(this.cellData[species][sourceID_a]) == 'undefined') {
+						this.cellData[species][sourceID_a] = {};
+					    }
+					    if(typeof(this.cellData[species][sourceID_a][targetID]) == 'undefined') {
+						this.cellData[species][sourceID_a][targetID] = {};
+					    }
+					    this.cellData[species][sourceID_a][targetID] = dataVals;
 					}
 				}  //if
 			}
@@ -738,7 +761,7 @@ DataManager.prototype = {
 		for(var s=0; s < sourceList.length; s++) {
 			for(var t=0; t < targetList.length; t++) {
 				var cellMatch = this.cellPointMatch(sourceList[s], targetList[t], species);
-				if (typeof (cellMatch) !== 'undefined') {
+				if (cellMatch != null && typeof (cellMatch) !== 'undefined') {
 					var src = cellMatch.source_id,
 					tar = cellMatch.target_id, key;
 					key = src + '-' + tar;
@@ -881,7 +904,7 @@ DataManager.prototype = {
 		dummyModelName: "dummy",
 		simServerURL: "",  // URL of the server for similarity searches
 		preloadHPO: false,	// Boolean value that allows for preloading of all HPO data at start.  If false, the user will have to manually select what HPO relations to load via hoverbox.
-		titleOffsets: [{"main": {x:220, y:5}, "disease": {x:0, y:100}}],
+		titleOffsets: [{"main": {x:220, y:30}, "disease": {x:0, y:100}}],
 		gridRegion: [{x:254, y:300}]
 	},
 
@@ -3198,7 +3221,7 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 		this._createXRegion();
 		this._createYRegion();
 		this._createSpeciesBorderOutline();
-		this._createCellRects();
+		//this._createCellRects();
 
 		/*
 		 * this must be initialized here after the _createModelLabels, or the mouse events don't get
