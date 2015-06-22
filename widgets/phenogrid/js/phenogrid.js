@@ -193,6 +193,12 @@ AxisGroup.prototype = {
 		return Object.keys(renderedList);	
 	},
 
+
+       /* number of items diplayed */
+    displayLength: function() {
+
+    },
+
 	/*
 		Function: position
 			gets the relative position a key within the rendered or viewable range
@@ -316,6 +322,16 @@ AxisGroup.prototype = {
 			this.items[temp[t].id] = temp[t];
 		}
 
+    },
+
+    getScale: function() {
+	var values = this.keys();
+	var scale = d3.scale.ordinal()
+	.domain(values)
+	.rangeRoundBands([0,values.length]);
+
+
+	return scale
     }
 };
 
@@ -630,7 +646,6 @@ DataManager.prototype = {
 			if (typeof (res) !=='undefined' && res !== null) {
 				// now transform data to there basic data structures
 				this.transform(res, speciesName[i].name);  
-				this.createMatrix(speciesName[i].name);
 			}
 		}
 
@@ -750,69 +765,6 @@ DataManager.prototype = {
 				}  //if
 			}
 		}
-	},
-	createMatrix: function(species) {
-
-		this.matrix[species] = {};
-
-		var sourceList = Object.keys(this.source);
-		var targetList = Object.keys(this.target[species]);
-		// loop through the source/target to build matrix
-		for(var s=0; s < sourceList.length; s++) {
-			for(var t=0; t < targetList.length; t++) {
-				var cellMatch = this.cellPointMatch(sourceList[s], targetList[t], species);
-				if (cellMatch != null && typeof (cellMatch) !== 'undefined') {
-					var src = cellMatch.source_id,
-					tar = cellMatch.target_id, key;
-					key = src + '-' + tar;
-					this.matrix[species][key] = {source_id: src, target_id: tar, value: cellMatch.value};
-		 		}			 		
-			}
-		}
-	},
-	buildMatrix: function(sourceList, targetList, species, inverted) {
-		this.matrix = [];
-		console.log ("building matrix...");
-
-		// loop through the rendered source/target to build matrix
-		for(var s=0; s < sourceList.length; s++) {
-			for(var t=0; t < targetList.length; t++) {
-				var cellMatch = this.cellPointMatch(sourceList[s], targetList[t], species);
-
-				if (typeof (cellMatch) !== 'undefined') {
-					var source, target;
-
-					if (inverted){
-						source = cellMatch.target_id;
-						target = cellMatch.source_id;
-					} else {
-						source = cellMatch.source_id;
-						target = cellMatch.target_id;
-		 			}			 			
-		 			var coords = {xpos: t, ypos: s};
-			 		
-		 			// update cell source/target
-		 			cellMatch.source_id = source;
-					cellMatch.target_id = target;
-
-					var match = {source_id: cellMatch.source_id, target_id: cellMatch.target_id, species: cellMatch.species};
-
-		 			var rec = $.extend({}, match, coords); 
-					this.matrix.push(rec);
-		 		}
-			}
-		}
-	},
-	matrixArray: function(species) {
-		var keys = Object.keys(this.matrix[species]);
-		var a = [];
-		// loop through get element
-		for (var m in keys) {
-			var key = keys[m];
-			var el = this.matrix[species][key] ;
-			a.push(el);
-		}
-		return a;
 	},
 
 	/*
@@ -1264,31 +1216,31 @@ DataManager.prototype = {
 
 	},
 
-	_createGrid: function() {
-		var self = this;
-		var xvalues = this.state.xAxisRender.keys();
-		var yvalues = this.state.yAxisRender.keys();
 
-		this.state.xScale = d3.scale.ordinal()
-		.domain(xvalues.map(function (d) {return d; }))
-		.rangeRoundBands([0, xvalues.length]);
 
-		this.state.yScale = d3.scale.ordinal()	
-		.domain(yvalues.map(function (d) { return d; }))
-		.range([0, yvalues.length])
-		.rangePoints([0, yvalues.length]);
+            _getDisplayCells: function() {
+		var self =this;
 
-/**/
-		var matrix = []; //this.state.dataManager.matrixArray(this.state.targetSpeciesName);
+	    var yvalues = this.state.yAxisRender.keys();
+		this.state.yScale = this.state.yAxisRender.getScale();
+	    
+		/*this.state.yScale = d3.scale.ordinal()	
+		.domain(yvalues)
+		.rangeRoundBands([0,yvalues.length]);*/
+		//.range([0, yvalues.length])
+		//.rangePoints([0, yvalues.length]);
+
+	    var matrix = []; //this.state.dataManager.matrixArray(this.state.targetSpeciesName);
 
 		yvalues.forEach(function(d, i) {
 			var results = self.state.dataManager.matches(d, self.state.targetSpeciesName);
 			if (results != null ) {
 				var list = [];
-				for (var a in results) {
-					var	yPos = self.state.yAxisRender.position(results[a].source_id);
- 					var	xPos = self.state.xAxisRender.position(results[a].target_id);	
-					if (yPos > -1 && xPos > -1) {  // if > -1 , then it's in the viewable rendered range	 					
+			    for (var a in results) {
+				var	yPos = self.state.yAxisRender.position(results[a].source_id);
+ 				var	xPos = self.state.xAxisRender.position(results[a].target_id);
+				if (yPos > -1 && xPos > -1) {  // if > -1 , then it's in the viewable rendered range
+
  						var rec = {source_id: results[a].source_id, target_id: results[a].target_id, xpos: xPos, 
  									ypos: yPos, species: results[a].species};
  						list.push(rec);
@@ -1298,6 +1250,22 @@ DataManager.prototype = {
 			}
 		});
 
+	    return matrix;
+
+
+	},
+
+	_createGrid: function() {
+		var self = this;
+		var xvalues = this.state.xAxisRender.keys();
+
+
+		this.state.xScale = this.state.xAxisRender.getScale();
+		/*d3.scale.ordinal()
+		.domain(xvalues)
+		.rangeRoundBands([0, xvalues.length]);*/
+/**/
+	    var matrix = this._getDisplayCells();
 
 		var gridxoffset=255, gridyoffset = 150, gridypadding=12, gridxpadding=20;
 
@@ -1307,7 +1275,6 @@ DataManager.prototype = {
 		.enter().append("g")
   			.attr("class", "row")
   			.attr("transform", function(d, i) { 
-  				console.log(d);
   				return "translate(" + gridxoffset +"," + (gridyoffset+self.state.yScale(i)*gridypadding) + ")"; })
   			.each(createrow);
 
@@ -1322,7 +1289,6 @@ DataManager.prototype = {
 	      .attr("text-anchor", "end")
 	      .text(function(d, i) { 
 	      	var el = self.state.yAxisRender.itemAt(i);
-	      	console.log(JSON.stringify(el));
 	      	return self._getShortLabel(el.label); });
 
 	    // create columns using the xvalues (targets)
@@ -1332,7 +1298,6 @@ DataManager.prototype = {
 	      .attr("class", "column")
 	      .attr("transform", function(d, i) { 
 	      	var p = self.state.xScale(i);
-	      	console.log('p:' + p  + ' d:'+JSON.stringify(d));
 	      	return "translate(" + (gridxoffset+self.state.xScale(i)*gridxpadding) + "," + (gridyoffset-5) + ")rotate(-45)"; });
 
 	  	column.append("text")
@@ -1361,7 +1326,6 @@ DataManager.prototype = {
 				.attr("ry", "3")			        
 		        //.style("fill-opacity", function(d) { return z(d.z); })
 		        .style("fill", function(d) { 
-		        		console.log('color d:'+ JSON.stringify(d));
 			        	return "black"; })
 		        .on("mouseover", mouseover)
 		        .on("mouseout", mouseout);
@@ -2927,103 +2891,6 @@ DataManager.prototype = {
 		return {x: Number(obj.getAttribute("x")) + tform.x, y: Number(obj.getAttribute("y")) + tform.y};
 	},
 
-	/*
-	 * NOTE: I need to find a way to either add the model class to the phenotypes when they load OR
-	 * select the rect objects related to the model and append the class to them.
-	 * something like this: $( "p" ).addClass( "myClass yourClass" );
-	 */
-	_createCellRects: function() {
-		var self = this;
-		//var data = this.state.filteredCellData;
-		//var data = this.state.dataManager.getData("matrix");
-		var data = []; 
-		yvalues.forEach(function(d, i) {
-				var results = self.state.dataManager.matches(d, self.state.targetSpeciesName);
-				if (results != null ) {
-					var list = [];
-					for (var a in results) {
-						var	yPos = self.state.yAxisRender.position(results[a].source_id);
-	 					var	xPos = self.state.xAxisRender.position(results[a].target_id);	
-	 					var rec = {source_id: results[a].source_id, target_id: results[a].target_id, xpos: xPos, 
-	 									ypos: yPos, species: results[a].species};
-	 					list.push(rec);
-	 				}
-					matrix.push(list);
-				}
-		});
-
-
-	  	var colorSelector = this.state.axisFlipConfig.colorSelector[this.state.invertAxis];
-		var cell_rects = this.state.svg.selectAll(".cells")
-			.data( data, function(d) {
-				return d.target_id + d.source_id;    //MKD: d.xID + d.yID;
-			});
-		cell_rects.enter()
-			.append("rect")
-			.attr("transform","translate(" + self.state.gridRegion[0].x + "," + self.state.gridRegion[0].y+ ")")						//254, " + (this.state.yModelRegion + 5) + ")")
-			.attr("class", function(d) { 
-				var dConcept = (d.target_id + d.source_id);   //(d.xID + d.yID);
-				var cellConcept = self._getConceptId(d.target_id);  //d.xID);
-				// append the model id to all related items
-				// if(d.value[self.state.selectedCalculation] > 0) {
-				// 	var bla = self.state.svg.selectAll(".data_text." + dConcept);
-				// 	bla.classed(cellConcept, true);
-				// }
-            	return "cells " + " " + dConcept;
-			})
-			.attr("y", function(d, i) { 
-			    return d.ypos * self.state.heightOfSingleCell;})  //self._getAxisData(d.yID).ypos + self.state.yoffsetOver;			
-			.attr("x", function(d) { 
-				return d.xpos * self.state.widthOfSingleCell;})		//xID);})
-			.attr("width", 10)
-			.attr("height", 10)
-			.attr("rx", "3")
-			.attr("ry", "3")
-   // 		        .on("mouseover", function(d) {
-			// 	this.parentNode.appendChild(this);
-			// 	// if this column and row are selected, clear the column/row and unset the column/row flag
-			// 	if (self.state.selectedColumn !== undefined && self.state.selectedRow !== undefined) {
-			// 		self.state.selectedColumn = undefined;
-			// 		self.state.selectedRow = undefined;
-			// 		self._deselectData();
-
-			// 		if (this != self.state.currSelectedRect){
-			// 			self._highlightIntersection(d, d3.mouse(this));
-			// 			// put the clicked rect on the top layer of the svg so other events work
-			// 			//???this.parentNode.appendChild(this);
-			// 			self._enableRowColumnRects(this);
-			// 			// set the current selected rectangle
-			// 			self.state.currSelectedRect = this;
-			// 		}
-			// 	} else {
-			// 		self._highlightIntersection(d, d3.mouse(this));
-			// 		self._enableRowColumnRects(this);
-			// 		self.state.currSelectedRect = this;
-			// 	}
-			//     self._showCellData(d, this);
-			// })
-			// .on("mouseout", function(d) {
-			// 	self._deselectData(data);
-			// })
-			.style('opacity', '1.0')
-		.attr("fill", function(d) {
-			var colorID = d[colorSelector];
-			return self._getColorForCellValue2(self, self._getAxisData(colorID));  //.species,d.value[self.state.selectedCalculation]);
-		});
-		cell_rects.transition()
-			.delay(20)
-			.style('opacity', '1.0')
-			.attr("y", function(d) {
-				return d.ypos * self.state.heightOfSingleCell;     //self._getAxisData(d.yID).ypos - 10; // rowid
-			})
-			.attr("x", function(d) { 
-				return d.xpos * self.state.widthOfSingleCell;  //xID);
-			});
-		cell_rects.exit().transition()
-			.style('opacity', '0.0')
-		.remove();
-		
-	},
 
 	_createSpeciesBorderOutline: function () {
 		// create the related model rectangles
