@@ -484,6 +484,7 @@ var url = document.URL;
 		var self = this;
 		var xvalues = self.state.xAxisRender.keys();
 		var gridRegion = self.state.gridRegion[0]; 
+		var axisStatus = self.state.invertAxis;
 
 		this.state.xScale = this.state.xAxisRender.getScale();
 		this.state.yScale = this.state.yAxisRender.getScale();
@@ -558,22 +559,32 @@ var url = document.URL;
 */
 
 		function createrow(row) {
-		 	var self = this;
-		 	var gr = this.gridRegion;
-
-		    var cell = d3.select(self).selectAll(".cell")
+		 	//var self = this;
+		    var cell = d3.select(this).selectAll(".cell")
 		        .data(row)
 		      .enter().append("rect")
 		        .attr("class", "cell")
 		        .attr("x", function(d) { 
-		        		return d.xpos * 20;})  // gr.xpad;})
-		        .attr("width", 10) //gr.cellwd) 
-		        .attr("height", 10) //gr.cellht)
+		        		return d.xpos * gridRegion.xpad + 2;})  // gr.xpad;})
+		        .attr("width", gridRegion.cellwd) //gr.cellwd) 
+		        .attr("height", gridRegion.cellht) //gr.cellht)
 				.attr("rx", "3")
 				.attr("ry", "3")			        
 		        //.style("fill-opacity", function(d) { return z(d.z); })
 		        .style("fill", function(d) { 
-			        	return "black"; })
+		        	var s, t;
+					if (axisStatus){
+						s = d.target_id;
+						t = d.source_id;
+					} else {
+						s = d.source_id;
+						t = d.target_id;						
+					} 
+					var el = self.state.dataManager.getDetail(s, t, d.species);
+					//console.log(JSON.stringify(el));
+					return self._getColorForModelValue(self, d.species, el.value[self.state.selectedCalculation]);
+			        	//return "black"; 
+			        })
 		        .on("mouseover", mouseover)
 		        .on("mouseout", mouseout);
 		}
@@ -586,6 +597,12 @@ var url = document.URL;
 			function mouseout() {
 			d3.selectAll("text").classed("active", false);
 		}
+	},
+
+	_getColorForModelValue: function(self,species,score) {
+		// This is for the new "Overview" target option
+		var selectedScale = this.state.colorScale[species][self.state.selectedCalculation];
+		return selectedScale(score);
 	},
 
 	/* dummy option procedures as per 

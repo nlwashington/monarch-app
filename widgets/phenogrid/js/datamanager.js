@@ -218,6 +218,9 @@ DataManager.prototype = {
 		}
 		return el;
 	},
+	getDetail: function (s, t, species) {
+	 	return this.cellData[species][s][t]; 
+	},
 	/*
 		Function: contains
 
@@ -247,7 +250,7 @@ DataManager.prototype = {
 			if (results != null ) {
 				var list = [];
 			    for (var a in results) {
-			    	console.log(JSON.stringify(results[a]));
+//			    	console.log(JSON.stringify(results[a]));
 			    	if (typeof(results[a]) !== 'undefined') {
 				    	var	xPos, yPos;
 				    	if (self.parent.state.invertAxis) { // find a better way to do this}
