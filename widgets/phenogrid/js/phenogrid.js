@@ -565,22 +565,14 @@ var url = document.URL;
 		      .enter().append("rect")
 		        .attr("class", "cell")
 		        .attr("x", function(d) { 
-		        		return d.xpos * gridRegion.xpad + 2;})  // gr.xpad;})
+		        		return d.xpos * gridRegion.xpad;})  // gr.xpad;})
 		        .attr("width", gridRegion.cellwd) //gr.cellwd) 
 		        .attr("height", gridRegion.cellht) //gr.cellht)
 				.attr("rx", "3")
 				.attr("ry", "3")			        
 		        //.style("fill-opacity", function(d) { return z(d.z); })
 		        .style("fill", function(d) { 
-		        	var s, t;
-					if (axisStatus){
-						s = d.target_id;
-						t = d.source_id;
-					} else {
-						s = d.source_id;
-						t = d.target_id;						
-					} 
-					var el = self.state.dataManager.getDetail(s, t, d.species);
+					var el = self.state.dataManager.getDetail(d.source_id, d.target_id, d.species);
 					//console.log(JSON.stringify(el));
 					return self._getColorForModelValue(self, d.species, el.value[self.state.selectedCalculation]);
 			        	//return "black"; 
