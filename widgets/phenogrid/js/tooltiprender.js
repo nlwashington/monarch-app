@@ -1,12 +1,17 @@
 /* 
-	TooltipRender - Render the content of a tooltip.
+	Package: tooltiprender.js
 
-	The tooltip consist of two 'areas', 1.) basic info area, which provides general info
-	such as id, label, rank, score, etc. Most object will have these attribute. it accounts 
-	for absent attributes. 2.) the action or extended info area, which render content specific to 
-	performing actions such as displaying expand buttons and other specialized info. For new types,
-	just add a specialized method, making sure the the name matches the data.type 
-	(e.g, function phenotype => data.type='phenotype').
+ 	Constructor: TooltipRender 
+		Render the content of a tooltip
+		The tooltip consist of two 'areas', 1.) basic info area, which provides general info
+		such as id, label, rank, score, etc. Most object will have these attribute. it accounts 
+		for absent attributes. 2.) the action or extended info area, which render content specific to 
+		performing actions such as displaying expand buttons and other specialized info. For new types,
+		just add a specialized method, making sure the the name matches the data.type 
+		(e.g, function phenotype => data.type='phenotype').
+
+ 	Parameters:
+ 		url base
 */
 var TooltipRender = function(url) {  //parms
 	 this.url = url;
