@@ -247,13 +247,21 @@ DataManager.prototype = {
 			if (results != null ) {
 				var list = [];
 			    for (var a in results) {
-				var	yPos = self.parent.state.yAxisRender.position(results[a].source_id);
- 				var	xPos = self.parent.state.xAxisRender.position(results[a].target_id);
-				if (yPos > -1 && xPos > -1) {  // if > -1 , then it's in the viewable rendered range
-
- 						var rec = {source_id: results[a].source_id, target_id: results[a].target_id, xpos: xPos, 
- 									ypos: yPos, species: results[a].species};
- 						list.push(rec);
+			    	console.log(JSON.stringify(results[a]));
+			    	if (typeof(results[a]) !== 'undefined') {
+				    	var	xPos, yPos;
+				    	if (self.parent.state.invertAxis) { // find a better way to do this}
+								xPos = self.parent.state.xAxisRender.position(results[a].source_id);									    		
+							yPos = self.parent.state.yAxisRender.position(results[a].target_id);
+							} else {
+								xPos = self.parent.state.xAxisRender.position(results[a].target_id);
+								yPos = self.parent.state.yAxisRender.position(results[a].source_id); 						
+							}
+						if (yPos > -1 && xPos > -1) {  // if > -1 , then it's in the viewable rendered range
+							var rec = {source_id: results[a].source_id, target_id: results[a].target_id, xpos: xPos, 
+											ypos: yPos, species: results[a].species};
+							list.push(rec);
+						}
  					}
  				}
 				matrix.push(list);
