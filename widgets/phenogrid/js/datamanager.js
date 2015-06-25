@@ -4,12 +4,14 @@
 
  	Parameters:
   		parent - reference to parent calling object
- 		serverUrl - sim server url, or location of server to provide data
 */
-var DataManager = function(parent, serverUrl) {
-	this.parent = parent;
-	this.simServerURL = serverUrl;
-	this.init();
+var DataManager = function(dataLoader) {
+	this.dataLoader = dataLoader;
+
+	// inject data
+	this.target = this.dataLoader.getTargets();
+	this.source = this.dataLoader.getSources();
+	this.cellData = this.dataLoader.getCellData();
 };
 
 /*
@@ -18,29 +20,10 @@ var DataManager = function(parent, serverUrl) {
  		servers, transformation and storage.
  
  	Parameters:
- 	 	parent - reference to parent calling object
- 		serverUrl - sim server url
+ 		dataLoader - reference to the dataLoader
  */
 DataManager.prototype = {
 	constructor: DataManager,
-
-	/*
-		Function: init
-			initializes the dataManager
-
-		Returns:
-			none
-	*/		
-	init: function() {
-		this.source = []; // phenoList
-		this.target = []; // modelList
-		this.expandedCache = [];   
-		this.cellData = []; 
-		this.matrix = [];
-		this.owlsimsData = [];			// raw owlsim
-		this.origSourceList;
-		this.initialized = false;
-	},
 
 	/*
 		Function: isInitialized
@@ -240,26 +223,28 @@ DataManager.prototype = {
 		return true;
 	}, 	
 
-	getMatrix: function(species) {
+	getMatrix: function(xvals, yvals, species, invertAxis) {
 		var self = this;
-	    var yvalues = this.parent.state.yAxisRender.keys();    
+	    var xvalues = xvals, yvalues = yvals;     
 	    var matrix = []; 
 
 		yvalues.forEach(function(d, i) {
-			var results = self.matches(d, species);  //MKD: needs refactored for overview
+			var results = self.matches(d, species); 
 			if (results != null ) {
 				var list = [];
 			    for (var a in results) {
 //			    	console.log(JSON.stringify(results[a]));
 			    	if (typeof(results[a]) !== 'undefined') {
-				    	var	xPos, yPos;
-				    	if (self.parent.state.invertAxis) { // find a better way to do this}
-								xPos = self.parent.state.xAxisRender.position(results[a].source_id);									    		
-							yPos = self.parent.state.yAxisRender.position(results[a].target_id);
-							} else {
-								xPos = self.parent.state.xAxisRender.position(results[a].target_id);
-								yPos = self.parent.state.yAxisRender.position(results[a].source_id); 						
-							}
+						var	xPos, yPos;
+
+						// get the x/y positions based on the ordered index
+				    	if (invertAxis) { 
+				    		xPos = xvalues.indexOf(results[a].source_id);
+				    		yPos = yvalues.indexOf(results[a].target_id);
+						} else {
+				    		xPos = xvalues.indexOf(results[a].target_id);
+				    		yPos = yvalues.indexOf(results[a].source_id);
+						}
 						if (yPos > -1 && xPos > -1) {  // if > -1 , then it's in the viewable rendered range
 							var rec = {source_id: results[a].source_id, target_id: results[a].target_id, xpos: xPos, 
 											ypos: yPos, species: results[a].species};
@@ -289,9 +274,13 @@ DataManager.prototype = {
 		this.target = [];
 		this.cellData = [];
 
-		// transform the data again using the originalOwlsim data, but for specified species
-		this.parent.state.dataLoader.transform(species);    ///this.owlsimsData[species], species);  
+		// tell dataLoader to refresh data 
+		this.dataLoader.refresh(species);
 
+		// inject data
+		this.target = this.dataLoader.getTargets();
+		this.source = this.dataLoader.getSources();
+		this.cellData = this.dataLoader.getCellData();
 	}
 };
 

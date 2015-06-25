@@ -153,11 +153,6 @@ var url = document.URL;
 	*/
 	_reset: function(type) {
 
-		// LEAVE UNTIL OR MOVING HASH CONSTRUCTION EARLIER
-		if (type == 'organism' || type == 'axisflip' || typeof(type) == 'undefined') {
-			this.state.expandedHash = new Hashtable();  //MKD:refactor to array
-		}
-
 		// target species name might be provided as a name or as taxon. Make sure that we translate to name
 		this.state.targetSpeciesName = this._getTargetSpeciesNameByTaxon(this,this.state.targetSpeciesName);
 
@@ -273,10 +268,6 @@ var url = document.URL;
 			this.state.simServerURL=this.state.serverURL;
 		}
 		this.state.data = {};
-		this.state.dataLoader = new DataLoader(this, this.state.simServerURL);
-		this.state.dataManager = new DataManager(this); //, this.state.simServerURL);
-
-
 		// will this work?
 		this.configoptions = undefined;
 		this._createTargetSpeciesIndices();
@@ -341,19 +332,20 @@ var url = document.URL;
 		} else {
 			listofTargetSpecies.push(this.state.targetSpeciesName);
 		}
-		// dataManager fetch will initialize source and target data
-		//this.state.dataManager.fetch(querySourceList, listofTargetSpecies);
-		this.state.dataLoader.load(querySourceList, listofTargetSpecies);
-
 
 //TEMP CODE TESTING: force 1 species for testing
 		this.state.targetSpeciesName = "Homo sapiens";
 
+		// initialize data processing classes 
+		this.state.dataLoader = new DataLoader(this.state.simServerURL, this.state.simSearchQuery, querySourceList, 
+				listofTargetSpecies, this.state.apiEntityMap);
+		
+		this.state.dataManager = new DataManager(this.state.dataLoader);
+
 	    // initialize axis groups
 	    this._createAxisRenderingGroups();
 
-		this._initDefaults();   //MKD: refactor
-
+		this._initDefaults();   
 		this._processDisplay();
 
 	},
@@ -369,7 +361,7 @@ var url = document.URL;
 		}
 		this.state.tooltipRender = new TooltipRender(this.state.serverURL);   
 		
-		// init a single instance of Expander
+		// MKD: NEEDS REFACTORED init a single instance of Expander
 		this.state.expander = new Expander(); 
 
 		if (this.state.owlSimFunction == 'exomiser') {
@@ -483,13 +475,14 @@ var url = document.URL;
 	_createGrid: function() {
 		var self = this;
 		var xvalues = self.state.xAxisRender.keys();
+		var yvalues = self.state.yAxisRender.keys();
 		var gridRegion = self.state.gridRegion[0]; 
 		var axisStatus = self.state.invertAxis;
 
 		this.state.xScale = this.state.xAxisRender.getScale();
 		this.state.yScale = this.state.yAxisRender.getScale();
 
-	    var matrix = this.state.dataManager.getMatrix(this.state.targetSpeciesName); //   this._getDisplayCells();
+	    var matrix = this.state.dataManager.getMatrix(xvalues, yvalues, this.state.targetSpeciesName, axisStatus); 
 
 		// create a row, the matrix contains an array of rows (yscale) with an array of columns (xscale)
 		var row = this.state.svg.selectAll(".row")
@@ -500,11 +493,11 @@ var url = document.URL;
   				return "translate(" + gridRegion.x +"," + (gridRegion.y+self.state.yScale(i)*gridRegion.ypad) + ")"; })
   			.each(createrow);
 
-		row.append("line")
-			.attr("stroke-width", ".3")
+/*		row.append("line")
+			.attr("stroke-width", ".4")
 			.attr("stroke", "black")
       		.attr("x2", ((gridRegion.x-gridRegion.ypad) + (xvalues.length * gridRegion.ypad)-5));
-
+*/
 	  	row.append("text")
 			.attr("class", "grid_labels")	  	
 	      	.attr("x", gridRegion.rowLabelOffset)
@@ -527,14 +520,14 @@ var url = document.URL;
 	      	var p = self.state.xScale(i);
 	      	return "translate(" + (gridRegion.x + self.state.xScale(i)*gridRegion.xpad) +
 	      				 "," + (gridRegion.y-5) + ")rotate(-45)"; });
+/*
+		column.append("line")
+			.attr("stroke-width", ".4")		
+			.attr("stroke", "black")			
+      		.attr("x2", -500)
+      		.attr("y2", ((gridRegion.y)+ (yvalues.length*gridRegion.ypad-5)));
 
-/*		column.append("line")
-			.attr("stroke", "gray")			
-      		//.attr("x1", -45)
-      		//.attr("x2", -500)
-      		.attr("y2", (gridRegion.y));
 */
-
 	  	column.append("text")
 	  		.attr("class", "grid_labels")
 	      	.attr("x", 0)
@@ -857,19 +850,6 @@ var url = document.URL;
 		}));
 		// set this back to 0 so it doesn't affect other rendering
 	},
-
-	// Returns the ID of the value on the Y Axis based on current position provided
-	// _returnID: function(dataset,position){
-	// 	var searchArray = dataset;   //hashtable.entries();
-	// 	var results = false;
-	// 	for (var i in searchArray){
-	// 		if (searchArray[i][1].pos == position){
-	// 			results = searchArray[i][0];
-	// 			break;
-	// 		}
-	// 	}
-	// 	return results;
-	// },
 
 	// We only have 3 color,s but that will do for now
 	_getColorForCellValue: function(self,species,score) {
@@ -1796,23 +1776,7 @@ var url = document.URL;
 			return "Unknown";
 		}
 	},
-
-	/*
-	 * This method extracts the unique id from a given URI for example, http://www.berkeleybop.org/obo/HP:0003791 would return HP:0003791
-	 * Why? Two reasons. First it's useful to note that d3.js doesn't like to use URI's as ids.
-	 * Second, I like to use unique ids for CSS classes. This allows me to selectively manipulate related groups of items on the
-	 * screen based their relationship to a common concept (ex: HP000123). However, I can't use a URI as a class.
-	 */
-	_getConceptId: function (uri) {
-		// replace spaces with underscores. Classes are separated with spaces so a class called "Model 1" will be two classes: Model and 1. Convert this to "Model_1" to avoid this problem.
-		var retString = uri;
-		try {
-			retString = retString.replace(" ", "_");
-			retString = retString.replace(":", "_");
-			return retString;
-		} catch (exception) {}
-	},
-
+	
 	_convertLabelHTML: function (self, t, label, data) {
 		self = this;
 		var width = 100,
@@ -3239,35 +3203,6 @@ console.log(list);
 		return newModelList;
 	},
 
-//MKD: MOVE TO DATAMANAGER 
-/*	_rebuildCellHash: function() {
-		// [vaa12] needs updating based on changes in finishLoad and finishOverviewLoad
-		this.state.phenotypeListHash = new Hashtable();
-		this.state.cellDataHash = new Hashtable({hashCode: cellDataPointPrint, equals: cellDataPointEquals});
-		var modelPoint, hashData;
-		var y = 0;
-
-		// need to rebuild the pheno hash and the modelData hash
-		for (var i in this.state.modelData) {
-			// Setting phenotypeListHash
-			if (typeof(this.state.modelData[i].id_a) !== 'undefined' && !this.state.phenotypeListHash.containsKey(this.state.modelData[i].id_a)){
-				hashData = {"label": this.state.modelData[i].label_a, "IC": this.state.modelData[i].IC_a, "pos": y, "count": 0, "sum": 0, "type": "phenotype"};
-				this.state.phenotypeListHash.put(this.state.modelData[i].id_a, hashData);
-				y++;
-			}
-
-			// Setting cellDataHash
-			if (this.state.invertAxis){
-				modelPoint = new cellDataPoint(this.state.modelData[i].id_a, this.state.modelData[i].model_id);
-			} else {
-				modelPoint = new cellDataPoint(this.state.modelData[i].model_id, this.state.modelData[i].id_a);
-			}
-//			this._updateSortVals(this.state.modelData[i].id_a, this.state.modelData[i].subsumer_IC);
-			hashData = {"value": this.state.modelData[i].value, "subsumer_label": this.state.modelData[i].subsumer_label, "subsumer_id": this.state.modelData[i].subsumer_id, "subsumer_IC": this.state.modelData[i].subsumer_IC, "b_label": this.state.modelData[i].label_b, "b_id": this.state.modelData[i].id_b, "b_IC": this.state.modelData[i].IC_b};
-			this.state.cellDataHash.put(modelPoint, hashData);
-		}
-	},
-*/
 	// encode any special chars 
 	_encodeHtmlEntity: function(str) {
 		if (str !== null) {

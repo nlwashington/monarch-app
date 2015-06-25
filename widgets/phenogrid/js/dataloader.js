@@ -8,12 +8,25 @@
  	Parameters:
  	 	parent - reference to parent calling object
  		serverUrl - sim server url
+ 		simSearchQuery - sim search query specific url string
+ 		apiEntityMap - entity map identifies the prefix maps (this is probably temporary)
  */
-var DataLoader = function(parent, serverUrl) {
-	this.parent = parent;
+var DataLoader = function(serverUrl, simSearchQuery, qrySourceList, speciesList, apiEntityMap, limit) {
 	this.simServerURL = serverUrl;
+	this.simSearchQuery = simSearchQuery;
+	this.qrySourceList = qrySourceList;
+	this.speciesList = speciesList;
+	this.limit = limit;
+	this.apiEntityMap = apiEntityMap;
 	this.owlsimsData = [];
 	this.origSourceList;
+	this.maxICScore = 0;
+	this.targetData = [];
+	this.sourceData = [];
+	this.cellData = [];
+
+	this.load(this.qrySourceList, this.speciesList, this.limit);
+
 };
 
 DataLoader.prototype = {
@@ -42,7 +55,7 @@ DataLoader.prototype = {
 
 		for (var i=0; i < speciesName.length; i++) {
 
-	    	var url = this.simServerURL + this.parent.state.simSearchQuery + qrySourceList.join("+");
+	    	var url = this.simServerURL + this.simSearchQuery + qrySourceList.join("+");
 
 		    if (typeof(speciesName[i]) !== 'undefined') {
 		    	url += "&target_species=" + speciesName[i].taxon;
@@ -109,7 +122,6 @@ DataLoader.prototype = {
 	*/
 	transform: function(species) {      
 		var data = this.owlsimsData[species];
-		var xformData = [], targData = [], srcData = [];
 
 		if (typeof(data) !== 'undefined' &&
 		    typeof (data.b) !== 'undefined') {
@@ -117,16 +129,16 @@ DataLoader.prototype = {
 
 			// extract the maxIC score; ugh!
 			if (typeof (data.metadata) !== 'undefined') {
-				this.parent.state.maxICScore = data.metadata.maxMaxIC;
+				this.maxICScore = data.metadata.maxMaxIC;
 			}
-			xformData = [];
-			targData = []
-			srcData = [];
+			this.cellData[species] = [];
+			this.targetData[species] = []
+			this.sourceData = [];
 
 			var variantNum = 0;
 			for (var idx in data.b) {
 				var item = data.b[idx];
-				var targetID = this.parent._getConceptId(item.id);
+				var targetID = Utils.getConceptId(item.id);
 
 				// [vaa12] HACK.  NEEDED FOR ALLOWING MODELS OF THE SAME ID AKA VARIANTS TO BE DISPLAYED W/O OVERLAP
 				// SEEN MOST WITH COMPARE AND/OR EXOMISER DATA
@@ -136,10 +148,10 @@ DataLoader.prototype = {
 				// }
 
 				// TODO: THIS NEEDS CHANGED TO CATEGORY (I THINK MONARCH TEAM MENTIONED ADDING THIS)
-				type = this.parent.defaultApiEntity;
-				for (var j in this.parent.state.apiEntityMap) {
-				 	if (targetID.indexOf(this.parent.state.apiEntityMap[j].prefix) === 0) {
-				 		type = this.parent.state.apiEntityMap[j].apifragment;
+				//type = this.parent.defaultApiEntity;
+				for (var j in this.apiEntityMap) {
+				 	if (targetID.indexOf(this.apiEntityMap[j].prefix) === 0) {
+				 		type = this.apiEntityMap[j].apifragment;
 				 	}
 				}
 				
@@ -151,7 +163,7 @@ DataLoader.prototype = {
 					 "type": type, 
 					 "rank": parseInt(idx), 
 					 "score": item.score.score};  
-				targData[targetID] = t;
+				this.targetData[species][targetID] = t;
 
 				var matches = data.b[idx].matches;
 				var curr_row, lcs, cellPoint, dataVals;
@@ -161,14 +173,14 @@ DataLoader.prototype = {
 					var sum =0, count=0;
 					for (var matchIdx in matches) {
 						curr_row = matches[matchIdx];
-						sourceID_a = this.parent._getConceptId(curr_row.a.id);
-						currID_b = this.parent._getConceptId(curr_row.b.id)
-						currID_lcs = this.parent._getConceptId(curr_row.lcs.id);
+						sourceID_a = Utils.getConceptId(curr_row.a.id);
+						currID_b = Utils.getConceptId(curr_row.b.id)
+						currID_lcs = Utils.getConceptId(curr_row.lcs.id);
 
-						lcs = this.parent._normalizeIC(curr_row);
+						lcs = Utils.normalizeIC(curr_row, this.maxICScore);
 
 						//var srcElement = this.getElement("source", sourceID_a);
-						var srcElement = srcData[sourceID_a]; // this checks to see if source already exists
+						var srcElement = this.sourceData[sourceID_a]; // this checks to see if source already exists
 
 						// build a unique list of sources
 						if (typeof(srcElement) == 'undefined') {
@@ -176,25 +188,25 @@ DataLoader.prototype = {
 
 							dataVals = {"id":sourceID_a, "label": curr_row.a.label, "IC": parseFloat(curr_row.a.IC), //"pos": 0, 
 											"count": count, "sum": sum, "type": "phenotype"};
-							srcData[sourceID_a] = dataVals;
-							//srcData.put(sourceID_a, hashDataVals);
+							this.sourceData[sourceID_a] = dataVals;
+							//sourceData.put(sourceID_a, hashDataVals);
 							// if (!this.state.hpoCacheBuilt && this.state.preloadHPO){
-							// 	this._getHPO(this._getConceptId(curr_row.a.id));
+							// 	this._getHPO(this.getConceptId(curr_row.a.id));
 							// }
 						} else {
-							srcData[sourceID_a].count += 1;
-							srcData[sourceID_a].sum += parseFloat(curr_row.lcs.IC);
+							this.sourceData[sourceID_a].count += 1;
+							this.sourceData[sourceID_a].sum += parseFloat(curr_row.lcs.IC);
 							
-							// console.log('source count: ' + srcData[sourceID_a].count);
-							// console.log('source sum' + srcData[sourceID_a].sum);
+							// console.log('source count: ' + sourceData[sourceID_a].count);
+							// console.log('source sum' + sourceData[sourceID_a].sum);
 						}
 
 						// update values for sorting
 						//var index = this.getElementIndex("source", sourceID_a);
 
 						//if(  index > -1) {
-							//srcData[index].count += 1;
-							//srcData[index].sum += parseFloat(curr_row.lcs.IC);
+							//sourceData[index].count += 1;
+							//sourceData[index].sum += parseFloat(curr_row.lcs.IC);
 
 
 						// building cell data points
@@ -204,21 +216,37 @@ DataLoader.prototype = {
 									"species": item.taxon.label,
 									"b_id": currID_b, "b_IC": parseFloat(curr_row.b.IC),
 							    "rowid": sourceID_a + "_" + currID_lcs};						
-					    if (typeof(xformData[sourceID_a]) == 'undefined') {
-							xformData[sourceID_a] = {};
+					    if (typeof(this.cellData[species][sourceID_a]) == 'undefined') {
+							this.cellData[species][sourceID_a] = {};
 					    }
-					    if(typeof(xformData[sourceID_a][targetID]) == 'undefined') {
-							xformData[sourceID_a][targetID] = {};
+					    if(typeof(this.cellData[species][sourceID_a][targetID]) == 'undefined') {
+							this.cellData[species][sourceID_a][targetID] = {};
 					    }
-					    xformData[sourceID_a][targetID] = dataVals;
+					    this.cellData[species][sourceID_a][targetID] = dataVals;
 					}
-
-					// set in dataManager  (not the best way to do this...)
-					this.parent.state.dataManager.cellData[species] = xformData;
-					this.parent.state.dataManager.target[species] = targData;
-					this.parent.state.dataManager.source = srcData;
 				}  //if
 			} // for
 		} // if
+	}, 
+
+	getTargets: function() {
+		return this.targetData;
+	},
+
+	getSources: function() {
+		return this.sourceData;
+	},
+
+	getCellData: function() {
+		return this.cellData;
+	},
+
+	getMaxICScore: function() {
+		return this.maxICScore;
+	},
+
+	refresh: function(species) {
+		this.transform(species);
 	}
+
 }
