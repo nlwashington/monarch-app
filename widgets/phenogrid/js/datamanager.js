@@ -1,9 +1,12 @@
-
 /*
- 	Constructor: DataManager 
+ 	Package: datamanager.js
 
+ 	Class: DataManager
+		handles all interaction with the data, from fetching from external 
+ 		servers, transformation and storage.
+ 
  	Parameters:
-  		parent - reference to parent calling object
+ 		dataLoader - reference to the dataLoader 	
 */
 var DataManager = function(dataLoader) {
 	this.dataLoader = dataLoader;
@@ -14,14 +17,6 @@ var DataManager = function(dataLoader) {
 	this.cellData = this.dataLoader.getCellData();
 };
 
-/*
- 	Class: DataManager
-  		handles all interaction with the data, from fetching from external 
- 		servers, transformation and storage.
- 
- 	Parameters:
- 		dataLoader - reference to the dataLoader
- */
 DataManager.prototype = {
 	constructor: DataManager,
 
