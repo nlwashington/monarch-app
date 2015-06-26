@@ -103,7 +103,7 @@ var url = document.URL;
 		defaultApiEntity: "gene",
 		tooltips: {},
 		widthOfSingleCell: 18,
-		heightOfSingleCell: 13,    //used
+		heightOfSingleCell: 13,    
 		yoffsetOver: 30,
 		overviewGridTitleXOffset: 340,
 		overviewGridTitleFaqOffset: 230,
@@ -117,8 +117,9 @@ var url = document.URL;
 		dummyModelName: "dummy",
 		simServerURL: "",  // URL of the server for similarity searches
 		preloadHPO: false,	// Boolean value that allows for preloading of all HPO data at start.  If false, the user will have to manually select what HPO relations to load via hoverbox.
-		titleOffsets: [{"main": {x:220, y:30}, "disease": {x:0, y:100}}],
-		gridRegion: [{x:254, y:150, ypad:12, xpad:20, cellwd:10, cellht:10, rowLabelOffset:-6}]
+		titleOffsets: [{"main": {x:220, y:0}, "disease": {x:0, y:100}}],
+		gridRegion: [{x:254, y:150, ypad:12, xpad:15, cellwd:10, cellht:10, // 12,20holds all spacing numbers for grid (labels, coords, etc)
+						rowLabelOffset:-12, colLabelOffset:20, scoreOffset:10}]
 	},
 
 	internalOptions: {
@@ -477,29 +478,29 @@ var url = document.URL;
 		var xvalues = self.state.xAxisRender.keys();
 		var yvalues = self.state.yAxisRender.keys();
 		var gridRegion = self.state.gridRegion[0]; 
-		var axisStatus = self.state.invertAxis;
+		var invertAxis = self.state.invertAxis;
 
 		this.state.xScale = this.state.xAxisRender.getScale();
 		this.state.yScale = this.state.yAxisRender.getScale();
 
-	    var matrix = this.state.dataManager.getMatrix(xvalues, yvalues, this.state.targetSpeciesName, axisStatus); 
+	    var matrix = this.state.dataManager.getMatrix(xvalues, yvalues, this.state.targetSpeciesName, invertAxis); 
 
 		// create a row, the matrix contains an array of rows (yscale) with an array of columns (xscale)
 		var row = this.state.svg.selectAll(".row")
   			.data(matrix)
 		.enter().append("g")
-  			.attr("class", "row")
+  			.attr("class", "grid_labels")
   			.attr("transform", function(d, i) { 
   				return "translate(" + gridRegion.x +"," + (gridRegion.y+self.state.yScale(i)*gridRegion.ypad) + ")"; })
   			.each(createrow);
 
 /*		row.append("line")
-			.attr("stroke-width", ".4")
-			.attr("stroke", "black")
+			.attr("stroke-width", ".2")
+			.attr("stroke", "gray")
       		.attr("x2", ((gridRegion.x-gridRegion.ypad) + (xvalues.length * gridRegion.ypad)-5));
 */
 	  	row.append("text")
-			.attr("class", "grid_labels")	  	
+			//.attr("class", "grid_labels")	  	
 	      	.attr("x", gridRegion.rowLabelOffset)
 	      	.attr("y",  function(d, i) {
 	      			 var rb = self.state.yScale.rangeBand(i)/2;
@@ -515,41 +516,71 @@ var url = document.URL;
 	  	var column = this.state.svg.selectAll(".column")
 	      .data(xvalues)
 	    .enter().append("g")
-	      .attr("class", "column")
+	      .attr("class", "grid_labels")
 	      .attr("transform", function(d, i) { 
 	      	var p = self.state.xScale(i);
 	      	return "translate(" + (gridRegion.x + self.state.xScale(i)*gridRegion.xpad) +
-	      				 "," + (gridRegion.y-5) + ")rotate(-45)"; });
-/*
-		column.append("line")
-			.attr("stroke-width", ".4")		
-			.attr("stroke", "black")			
-      		.attr("x2", -500)
-      		.attr("y2", ((gridRegion.y)+ (yvalues.length*gridRegion.ypad-5)));
+	      				 "," + (gridRegion.y-gridRegion.colLabelOffset) + ")rotate(-45)"; });
 
-*/
 	  	column.append("text")
-	  		.attr("class", "grid_labels")
+	  		//.attr("class", "column")
 	      	.attr("x", 0)
 	      	.attr("y", self.state.xScale.rangeBand()+2)  //2
-		   // .attr("dy", ".32em")
+		    .attr("dy", ".32em")
 	      	.attr("text-anchor", "start")
 	      		.text(function(d, i) { 		      	
 				var el = self.state.xAxisRender.itemAt(i);
 					//console.log('d:'+JSON.stringify(d));
 	      		return self._getShortLabel(el.label); });
 
-/*	    column.append("text")
-	  		.attr("class", "grid_labels_scores")
-	      	.attr("x", 0)
-	      	.attr("y", self.state.xScale.rangeBand()+2)
+	    // add the scores;  TODO: move this to its own function
+	//    self._createTextScores();
+		var list, scale, axRender;
+		if (invertAxis) {
+			list = yvalues;
+			scale = self.state.yScale;
+			axRender = self.state.yAxisRender;
+		} else {
+			list = xvalues;
+			scale = self.state.xScale;
+			axRender = self.state.xAxisRender;
+		}
+	    var scores = this.state.svg.selectAll(".scores")
+	      .data(list)
+	    .enter().append("g");
+
+	    scores.append("text")
+	    	.attr("id", "scorelist")
+	  		.attr("class", "grid_labels")	      
 		    .attr("dy", ".32em")
+		    .attr("fill", function(d, i) {
+		    	var el = axRender.itemAt(i);
+				return self._getColorForCellValue(self, el.species, el.score);
+		    })
 	      	.attr("text-anchor", "start")
 	      		.text(function(d, i) { 		      	
-				var el = self.state.xAxisRender.itemAt(i);
-					//console.log('d:'+JSON.stringify(d));
-	      		return self._getShortLabel(el.score); });
-*/
+				var el = axRender.itemAt(i);
+	      		return el.score; 
+	      	})
+	      	;
+
+	    if (invertAxis) {
+			scores
+				.attr("transform", function(d, i) { 
+  					return "translate(" + gridRegion.x +"," + (gridRegion.y+scale(i)*gridRegion.ypad) + ")"; })
+	      		.attr("x", gridRegion.rowLabelOffset)
+	      		.attr("y",  function(d, i) {return scale.rangeBand(i)/2;});  
+	    } else {
+	    	scores	      		
+	    	.attr("transform", function(d, i) { 
+	      			return "translate(" + (gridRegion.x + scale(i)*gridRegion.xpad) +
+	      				 "," + (gridRegion.y-gridRegion.scoreOffset ) +")"})
+	      		.attr("x", 0)
+	      		.attr("y", scale.rangeBand()+2);
+	    }
+
+	    	
+
 
 		function createrow(row) {
 		 	//var self = this;
@@ -558,9 +589,9 @@ var url = document.URL;
 		      .enter().append("rect")
 		        .attr("class", "cell")
 		        .attr("x", function(d) { 
-		        		return d.xpos * gridRegion.xpad;})  // gr.xpad;})
-		        .attr("width", gridRegion.cellwd) //gr.cellwd) 
-		        .attr("height", gridRegion.cellht) //gr.cellht)
+		        		return d.xpos * gridRegion.xpad;})
+		        .attr("width", gridRegion.cellwd)
+		        .attr("height", gridRegion.cellht) 
 				.attr("rx", "3")
 				.attr("ry", "3")			        
 		        //.style("fill-opacity", function(d) { return z(d.z); })
@@ -575,8 +606,10 @@ var url = document.URL;
 		}
 
 	  	function mouseover(p) {
-		    d3.selectAll(".row text").classed("active", function(d, i) { return i == p.y; });
-				d3.selectAll(".column text").classed("active", function(d, i) { return i == p.x; });
+	  		console.log(p);
+	  		//self._selectYItem(p, d3.mouse(this));
+		    d3.selectAll(".row text").classed("active", function(d, i) { return i == d.ypos; });
+				d3.selectAll(".column text").classed("active", function(d, i) { return i == d.xpos; });
 		  }
 
 			function mouseout() {
@@ -2250,15 +2283,17 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 
 	_createTextScores: function() {
 		var self = this;
+		var gridRegion = self.state.gridRegion[0]; 
 		var list = [];
 		var xWidth = self.state.widthOfSingleCell;
+		var scale = null;
 		var y =0;
 		if (!this.state.invertAxis) {
-			//list = self._getSortedIDListStrict(this.state.filteredXAxis.entries());
 			list = self.state.xAxisRender.keys();
+			scale = self.state.xAxisRender.getScale();
 		} else {
-			//list = self._getSortedIDListStrict(this.state.filteredYAxis.entries());
-			list = self.state.yAxisRender.keys();			
+			list = self.state.yAxisRender.keys();
+			scale = self.state.yAxisRender.getScale();			
 		}
 
 		this.state.svg.selectAll("text.scores")
@@ -2270,15 +2305,18 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 			.attr("width", xWidth)
 			.attr("class", "scores")
 			// don't show score if it is a dummy model.
-			.text(function (d){ 
+			.text(function (d, i){ 
 				if (d === self.state.dummyModelName) {
 					return "";
 				} else {
-					return self._getAxisData(d).score;
+					var el = self.state.xAxisRender.itemAt(i);
+					return el.score;
 				}})
 			.style("font-weight","bold")
 			.style("fill",function(d) {
-				return self._getColorForCellValue(self,self._getAxisData(d).species,self._getAxisData(d).score);
+				var el = self.state.dataManager.getDetail(d.source_id, d.target_id, d.species);
+				return self._getColorForModelValue(self, d.species, el.value[self.state.selectedCalculation]);
+				//return self._getColorForCellValue(self,self._getAxisData(d).species,self._getAxisData(d).score);
 			});
 
 			if (this.state.invertAxis){
@@ -2291,8 +2329,12 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 				this.state.svg.selectAll("text.scores").attr("transform","translate(0, " + (this.state.yModelRegion+5) + ")");
 			} else {
 				this.state.svg.selectAll("text.scores").attr("x",function(d,i){return i * xWidth;});
-				this.state.svg.selectAll("text.scores").attr("y", 0);
-				this.state.svg.selectAll("text.scores").attr("transform", "translate(" + (this.state.textWidth + 54) + "," + this.state.yoffset + ")");
+				//this.state.svg.selectAll("text.scores").attr("y", 0);
+				//this.state.svg.selectAll("text.scores").attr("transform", "translate(" + (this.state.textWidth + 54) + "," + this.state.yoffset + ")");
+			 	this.state.svg.selectAll("text.scores").attr("transform", "translate(" + (gridRegion.x + self.state.xScale(i)*gridRegion.xpad) +
+	      				 "," + (gridRegion.y-gridRegion.scoreOffset ) +")");
+			 	this.state.svg.selectAll("text.scores").attr("x", 0);
+			 	this.state.svg.selectAll("text.scores").attr("y",scale.rangeBand()+2);
 			}
 	},
 

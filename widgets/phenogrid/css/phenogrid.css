@@ -71,7 +71,8 @@ body {
 
 #scorelist {
 	font-size:10px;
-	fill: #0F473E;
+	/*fill: #0F473E;*/
+	font-weight:bold;
 }
 
 #detail_text {
