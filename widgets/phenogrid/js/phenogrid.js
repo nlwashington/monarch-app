@@ -118,8 +118,12 @@ var url = document.URL;
 		simServerURL: "",  // URL of the server for similarity searches
 		preloadHPO: false,	// Boolean value that allows for preloading of all HPO data at start.  If false, the user will have to manually select what HPO relations to load via hoverbox.
 		titleOffsets: [{"main": {x:220, y:0}, "disease": {x:0, y:100}}],
-		gridRegion: [{x:254, y:150, ypad:12, xpad:15, cellwd:10, cellht:10, // 12,20holds all spacing numbers for grid (labels, coords, etc)
-						rowLabelOffset:-12, colLabelOffset:20, scoreOffset:10}]
+		gridRegion: [{x:254, y:150, // origin coordinates for grid region
+						ypad:12, xpad:15, // x/y padding between the label and grid
+						cellwd:10, cellht:10, // // cell width and height
+						rowLabelOffset:-20, colLabelOffset:20,   // row and col label offsets
+						scoreOffset:10  // score text offset
+					}]
 	},
 
 	internalOptions: {
@@ -317,7 +321,7 @@ var url = document.URL;
 //		this.state.phenotypeData = this._parseQuerySourceList(this.state.phenotypeData);
 		var querySourceList = this._parseQuerySourceList(this.state.phenotypeData);
 
-		// setup a species array for later usage; MAY NEED TO REFACTOR THIS
+		// setup a species array for later usage;
 		var speciesList = [];
 		for (var i in this.state.targetSpeciesList) {	
 			var species = this.state.targetSpeciesList[i].name;
@@ -335,7 +339,7 @@ var url = document.URL;
 		}
 
 //TEMP CODE TESTING: force 1 species for testing
-		this.state.targetSpeciesName = "Homo sapiens";
+		//this.state.targetSpeciesName = "Homo sapiens";
 
 		// initialize data processing classes 
 		this.state.dataLoader = new DataLoader(this.state.simServerURL, this.state.simSearchQuery, querySourceList, 
@@ -390,22 +394,28 @@ var url = document.URL;
     
         /*** Build axis group here. */
         /* remember, source = phenotype and target=model */
-   	    var self = this;
-
-   	    self._setAxisDisplayLimits();
+   	    this._setAxisDisplayLimits();
 
     	/* only do this if the group doesn't exist - don't
        	recreate on reload */
        	// creates AxisGroup with full source and target lists with default rendering range
-    	this.state.sourceAxis = new AxisGroup(0, self.state.sourceDisplayLimit,
+    	this.state.sourceAxis = new AxisGroup(0, this.state.sourceDisplayLimit,
 					  this.state.dataManager.getData("source"));
 		// sort source with default sorting type
 		this.state.sourceAxis.sort(this.state.selectedSort); 
-    
-    	this.state.targetAxis =  new AxisGroup(0, self.state.targetDisplayLimit,
-					   this.state.dataManager.getData("target", self.state.targetSpeciesName));
 
-    	self._setAxisRenderers();
+
+		// for overview we need to build a combined target list of all species
+		var targetList;
+		if (this.state.targetSpeciesName == 'Overview') {
+			targetList = this.state.dataManager.createCombinedTargetList(this.state.targetSpeciesList, this.state.multiOrganismCt);	
+		} else {
+			targetList = this.state.dataManager.getData("target", this.state.targetSpeciesName);
+		}
+		
+    	this.state.targetAxis =  new AxisGroup(0, this.state.targetDisplayLimit, targetList);
+
+    	this._setAxisRenderers();
 	},
 
     _setAxisRenderers: function() {
@@ -418,9 +428,6 @@ var url = document.URL;
 	       self.state.xAxisRender = self.state.targetAxis;
 	       self.state.yAxisRender= self.state.sourceAxis;
 	   }
-
-    	//self.state.dataManager.buildMatrix(self.state.yAxisRender.keys(),  self.state.xAxisRender.keys(), 
-    	//		self.state.targetSpeciesName, self.state.invertAxis);	   
     },
 
     _setAxisDisplayLimits: function() {
@@ -431,10 +438,14 @@ var url = document.URL;
 			this.state.sourceDisplayLimit = this.state.dataManager.length("source");
 		}
 
-		if (this.state.dataManager.length("target", this.state.targetSpeciesName) > this.state.dataDisplayCount) {
+		if (this.state.targetSpeciesName == 'Overview') {
 			this.state.targetDisplayLimit = this.state.dataDisplayCount;
 		} else {
-			this.state.targetDisplayLimit = this.state.dataManager.length("target", this.state.targetSpeciesName);
+			if (this.state.dataManager.length("target", this.state.targetSpeciesName) > this.state.dataDisplayCount) {
+				this.state.targetDisplayLimit = this.state.dataDisplayCount;
+			} else {
+				this.state.targetDisplayLimit = this.state.dataManager.length("target", this.state.targetSpeciesName);
+			}
 		}
     },
 
@@ -446,7 +457,7 @@ var url = document.URL;
 
 	
 	_reDraw: function() {
-		var self = this;
+		//var self = this;
 		if (this.state.dataManager.isInitialized()) {
 			var displayRangeCount = this.state.yAxisRender.displayLength();
 
@@ -457,8 +468,9 @@ var url = document.URL;
 //			this._createXRegion();
 			// this._createYRegion();
 //			self._createGridlines();
-			self._addPhenogridControls();
-			self._createGrid();
+			this._createXLines();
+			this._addPhenogridControls();
+			this._createGrid();
 
 			// this must be initialized here after the _createModelLabels, or the mouse events don't get
 			// initialized properly and tooltips won't work with the mouseover defined in _convertLableHTML
@@ -475,15 +487,15 @@ var url = document.URL;
 	// create the grid
 	_createGrid: function() {
 		var self = this;
-		var xvalues = self.state.xAxisRender.keys();
-		var yvalues = self.state.yAxisRender.keys();
+		var xvalues = self.state.xAxisRender.entries();   //keys();
+		var yvalues = self.state.yAxisRender.entries();
 		var gridRegion = self.state.gridRegion[0]; 
 		var invertAxis = self.state.invertAxis;
 
 		this.state.xScale = this.state.xAxisRender.getScale();
 		this.state.yScale = this.state.yAxisRender.getScale();
 
-	    var matrix = this.state.dataManager.getMatrix(xvalues, yvalues, this.state.targetSpeciesName, invertAxis); 
+	    var matrix = this.state.dataManager.getMatrix(xvalues, yvalues);  //this.state.targetSpeciesName
 
 		// create a row, the matrix contains an array of rows (yscale) with an array of columns (xscale)
 		var row = this.state.svg.selectAll(".row")
@@ -500,7 +512,6 @@ var url = document.URL;
       		.attr("x2", ((gridRegion.x-gridRegion.ypad) + (xvalues.length * gridRegion.ypad)-5));
 */
 	  	row.append("text")
-			//.attr("class", "grid_labels")	  	
 	      	.attr("x", gridRegion.rowLabelOffset)
 	      	.attr("y",  function(d, i) {
 	      			 var rb = self.state.yScale.rangeBand(i)/2;
@@ -510,7 +521,7 @@ var url = document.URL;
 	      .attr("text-anchor", "end")
 	      .text(function(d, i) { 
 	      	var el = self.state.yAxisRender.itemAt(i);
-	      	return self._getShortLabel(el.label); });
+	      	return Utils.getShortLabel(el.label); });
 
 	    // create columns using the xvalues (targets)
 	  	var column = this.state.svg.selectAll(".column")
@@ -529,19 +540,58 @@ var url = document.URL;
 		    .attr("dy", ".32em")
 	      	.attr("text-anchor", "start")
 	      		.text(function(d, i) { 		      	
-				var el = self.state.xAxisRender.itemAt(i);
+					//var el = self.state.xAxisRender.itemAt(i);
 					//console.log('d:'+JSON.stringify(d));
-	      		return self._getShortLabel(el.label); });
+	      		return Utils.getShortLabel(d.label,self.state.labelCharDisplayCount); });
 
-	    // add the scores;  TODO: move this to its own function
-	//    self._createTextScores();
+	    // add the scores  
+	    self._createTextScores();
+
+		function createrow(row) {
+		 	//var self = this;
+		    var cell = d3.select(this).selectAll(".cell")
+		        .data(row)
+		      .enter().append("rect")
+		        .attr("class", "cell")
+		        .attr("x", function(d) { 
+		        		return d.xpos * gridRegion.xpad;})
+		        .attr("width", gridRegion.cellwd)
+		        .attr("height", gridRegion.cellht) 
+				.attr("rx", "3")
+				.attr("ry", "3")			        
+		        //.style("fill-opacity", function(d) { return z(d.z); })
+		        .style("fill", function(d) { 
+					var el = self.state.dataManager.getCellDetail(d.source_id, d.target_id, d.species);
+					//console.log(JSON.stringify(el));
+					return self._getColorForModelValue(self, d.species, el.value[self.state.selectedCalculation]);
+			        })
+		        .on("mouseover", mouseover)
+		        .on("mouseout", mouseout);
+		}
+
+	  	function mouseover(p) {
+	  		console.log(p);
+	  		//self._selectYItem(p, d3.mouse(this));
+		    d3.selectAll(".row text").classed("active", function(d, i) { return i == d.ypos; });
+				d3.selectAll(".column text").classed("active", function(d, i) { return i == d.xpos; });
+		  }
+
+			function mouseout() {
+			d3.selectAll("text").classed("active", false);
+		}
+	},
+
+	_createTextScores: function () {
+		var self = this;
+		var gridRegion = self.state.gridRegion[0]; 
 		var list, scale, axRender;
-		if (invertAxis) {
-			list = yvalues;
+
+		if (self.state.invertAxis) {
+			list = self.state.yAxisRender.keys();  //yvalues;
 			scale = self.state.yScale;
 			axRender = self.state.yAxisRender;
 		} else {
-			list = xvalues;
+			list = self.state.xAxisRender.keys();    //xvalues;
 			scale = self.state.xScale;
 			axRender = self.state.xAxisRender;
 		}
@@ -564,10 +614,10 @@ var url = document.URL;
 	      	})
 	      	;
 
-	    if (invertAxis) {
+	    if (self.state.invertAxis) { 
 			scores
 				.attr("transform", function(d, i) { 
-  					return "translate(" + gridRegion.x +"," + (gridRegion.y+scale(i)*gridRegion.ypad) + ")"; })
+  					return "translate(" + (gridRegion.x-gridRegion.xpad) +"," + (gridRegion.y+scale(i)*gridRegion.ypad+6) + ")"; })
 	      		.attr("x", gridRegion.rowLabelOffset)
 	      		.attr("y",  function(d, i) {return scale.rangeBand(i)/2;});  
 	    } else {
@@ -578,45 +628,7 @@ var url = document.URL;
 	      		.attr("x", 0)
 	      		.attr("y", scale.rangeBand()+2);
 	    }
-
-	    	
-
-
-		function createrow(row) {
-		 	//var self = this;
-		    var cell = d3.select(this).selectAll(".cell")
-		        .data(row)
-		      .enter().append("rect")
-		        .attr("class", "cell")
-		        .attr("x", function(d) { 
-		        		return d.xpos * gridRegion.xpad;})
-		        .attr("width", gridRegion.cellwd)
-		        .attr("height", gridRegion.cellht) 
-				.attr("rx", "3")
-				.attr("ry", "3")			        
-		        //.style("fill-opacity", function(d) { return z(d.z); })
-		        .style("fill", function(d) { 
-					var el = self.state.dataManager.getDetail(d.source_id, d.target_id, d.species);
-					//console.log(JSON.stringify(el));
-					return self._getColorForModelValue(self, d.species, el.value[self.state.selectedCalculation]);
-			        	//return "black"; 
-			        })
-		        .on("mouseover", mouseover)
-		        .on("mouseout", mouseout);
-		}
-
-	  	function mouseover(p) {
-	  		console.log(p);
-	  		//self._selectYItem(p, d3.mouse(this));
-		    d3.selectAll(".row text").classed("active", function(d, i) { return i == d.ypos; });
-				d3.selectAll(".column text").classed("active", function(d, i) { return i == d.xpos; });
-		  }
-
-			function mouseout() {
-			d3.selectAll("text").classed("active", false);
-		}
-	},
-
+	}, 
 	_getColorForModelValue: function(self,species,score) {
 		// This is for the new "Overview" target option
 		var selectedScale = this.state.colorScale[species][self.state.selectedCalculation];
@@ -947,7 +959,7 @@ var url = document.URL;
 
 		// place it at yoffset - the top of the rectangles with the phenotypes
 		var disease = dtitle.replace(/ *\([^)]*\) */g,"");
-		var shortDis = self._getShortLabel(disease,60);	// [vaa12] magic number needs removed
+		var shortDis = Utils.getShortLabel(disease,60);	// [vaa12] magic number needs removed
 
 		// Use until SVG2. Word Wraps the Disease Title
 		this.state.svg.append("foreignObject")
@@ -1072,92 +1084,24 @@ var url = document.URL;
 		this._reDraw();
 	},
 
-	// given a list of phenotypes, find the top n models
-	// I may need to rename this method "getModelData". It should extract the models and reformat the data 
-// MKD: this is will be refactored out
-	_loadData: function() {
-
-		/*
-		 * set the owlsimFunction
-		 * there are three possibilities
-		 * 'undefined' is the basic, traditional simsearch
-		 * 'compare' goes against specific subsets genes/genoetypes
-		 * 'exomiser' calls the exomiser for the input data.
-		 * COMPARE CALL HACK - REFACTOR OUT
-		 */
-
-		if (typeof this.state.owlSimFunction === 'undefined'){
-			this.state.owlSimFunction = 'search';
-		} else if (this.state.owlSimFunction === 'compare' || this.state.owlSimFunction == 'exomiser'){
-			this.state.targetSpeciesName = "Homo sapiens";
-		} 
-
-		if (!this.state.hpoCacheBuilt){
-			this.state.hpoCacheHash = new Hashtable();
-			this.state.hpoCacheLabels = new Hashtable();
-		}
-
-		this.state.expandedHash = new Hashtable();  // for cache of genotypes
-
-		// build out the speciesList, this is used in serveral places and was initialized in _finishOverviewLoad
-		// MKD: may need to do this somewhere elese later
-		var speciesList = [];
-		for (var i in this.state.targetSpeciesList) {	
-			var species = this.state.targetSpeciesList[i].name;
-			speciesList.push(species);
-		}		
-		this.state.speciesList = speciesList;
-
-		this.state.hpoCacheBuilt = true;
-	},
-
     /*
 	 * Make sure there are limit items in res --
 	 * If we don't have enough, add some dummy items in. 
 	 * This will space things out appropriately, having dummy models take 
 	 * up some of the x axis space. Later, we will make sure not to show the labels for these dummies.
 	 */
-	_padSpeciesData: function(res,species,limit) {
-		var toadd = limit - res.b.length;
-		for (var i = 0; i < toadd; i++) {
-			var dummyId = "dummy" + species + i;
-			var newItem = { id: dummyId,
-				label: this.state.dummyModelName,
-				score: {score: 0, rank: Number.MAX_VALUE},
-			};
-			res.b.push(newItem);
-		}
-		return res;
-	},
-
-	// Different methods of based on the selectedCalculationMethod
-	_normalizeIC: function(datarow){
-		var aIC = datarow.a.IC;
-		var bIC = datarow.b.IC;
-		var lIC = datarow.lcs.IC;
-		var nic;
-
-		var ics = new Array(3);
-
-		// 0 - similarity
-		nic = Math.sqrt((Math.pow(aIC - lIC, 2)) + (Math.pow(bIC - lIC, 2)));
-		nic = (1 - (nic / + this.state.maxICScore)) * 100;
-		ics[0] = nic;
-
-		// 1 - ratio(q)
-		nic = ((lIC / aIC) * 100);
-		ics[1] = nic;
-
-		// 2 - uniquenss
-		nic = lIC;
-		ics[2] = nic;
-
-		// 3 - ratio(t)
-		nic = ((lIC / bIC) * 100);
-		ics[3] = nic;
-
-		return ics;
-	},
+	// _padSpeciesData: function(res,species,limit) {
+	// 	var toadd = limit - res.b.length;
+	// 	for (var i = 0; i < toadd; i++) {
+	// 		var dummyId = "dummy" + species + i;
+	// 		var newItem = { id: dummyId,
+	// 			label: this.state.dummyModelName,
+	// 			score: {score: 0, rank: Number.MAX_VALUE},
+	// 		};
+	// 		res.b.push(newItem);
+	// 	}
+	// 	return res;
+	// },
 
 	// Returns axis data from a ID of models or phenotypes
 	_getAxisData: function(key) {
@@ -1205,40 +1149,6 @@ var url = document.URL;
 		return "unknown";
 	},
 
-	// generic ajax call for all queries
-	// MKD: refactor to Dataloader
-	_ajaxLoadData: function (target, url) {
-		var self = this;
-		var res;
-		jQuery.ajax({
-			url: url, 
-			async : false,
-			dataType : 'json',
-			success : function(data) {
-				res = data;
-			},
-			error: function (xhr, errorType, exception) { 
-			// Triggered if an error communicating with server
-
-			switch(xhr.status){
-				case 404:
-				case 500:
-				case 501:
-				case 502:
-				case 503:
-				case 504:
-				case 505:
-				default:
-					msg = "We're having some problems. Please try again soon.";
-					break;
-				case 0: 
-					msg = "Please check your network connection.";
-					break;
-				}
-			} 
-		});
-		return res;
-	},
 
 	_createColorScale: function() {
 		var maxScore = 0,
@@ -1562,7 +1472,7 @@ var url = document.URL;
 			var blabels = this.state.svg.selectAll("text.model_label");
 			for (var i in blabels[0]){
 				label = this._getAxisData(blabels[0][i].id).label;
-				shortTxt = this._getShortLabel(label,self.state.labelCharDisplayCount);
+				shortTxt = Utils.getShortLabel(label,self.state.labelCharDisplayCount);
 				if (blabels[0][i].innerHTML == shortTxt){
 					blabels[0][i].style.fill = this._getExpandStyling(blabels[0][i].id); //"black";
 				}
@@ -1575,7 +1485,7 @@ var url = document.URL;
 			label = obj.label;
 
 			if (label != null && typeof(label) !== 'undefined') {
-				shortTxt = this._getShortLabel(label,shrinkSize);
+				shortTxt = Utils.getShortLabel(label,shrinkSize);
 				if (alabels[0][j].innerHTML == shortTxt){	
 					alabels[0][j].style.fill = this._getExpandStyling(alabels[0][j].id); //"black";
 				}
@@ -1752,10 +1662,10 @@ var url = document.URL;
 
 					if ((IDType == "source" && !this.state.invertAxis) || (IDType == "target" && this.state.invertAxis)){
 						alabels = this.state.svg.selectAll("text.a_text." + id);
-						alabels.html(this._getShortLabel(label));
+						alabels.html(Utils.getShortLabel(label));
 					}else if ((IDType == "source" && this.state.invertAxis) || (IDType == "target" && !this.state.invertAxis)){
 						alabels = this.state.svg.selectAll("text#" + id);
-						alabels.html(this._getShortLabel(label,self.state.labelCharDisplayCount));
+						alabels.html(Utils.getShortLabel(label,self.state.labelCharDisplayCount));
 					}
 
 					alabels.style("font-weight","normal");
@@ -1794,21 +1704,7 @@ var url = document.URL;
 		}
 	},
 
-	// return a label for use in the list. This label is shortened to fit within the space in the column
-	_getShortLabel: function(label, newlength) {
-		if (label !== undefined){
-			var retLabel = label;
-			if (!newlength) {
-				newlength = this.state.textLength;
-			}
-			if (label.length > newlength) {
-				retLabel = label.substring(0,newlength-3) + "...";
-			}	
-			return retLabel;
-		}else {
-			return "Unknown";
-		}
-	},
+
 	
 	_convertLabelHTML: function (self, t, label, data) {
 		self = this;
@@ -1819,7 +1715,7 @@ var url = document.URL;
 		y = +t.getAttribute("y");
 
 		// this fixes the labels that are html encoded 
-		label = this._decodeHtmlEntity(label);
+		label = Utils.decodeHtmlEntity(label);
 
 		p.append("text")
 			.attr('x', function(d) {
@@ -2228,7 +2124,7 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 			.selectAll("text") 
 			.each(function(d,i) { 
 				var labelM = self._getAxisData(d).label;
-				self._convertLabelHTML(self, this, self._getShortLabel(labelM,self.state.labelCharDisplayCount),d);
+				self._convertLabelHTML(self, this, Utils.getShortLabel(labelM,self.state.labelCharDisplayCount),d);
 			});
 	},
 
@@ -2242,9 +2138,9 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 	_createXLines: function() {
 		var modelLineGap = 10;
 		var lineY = this.state.yoffset - modelLineGap;
-		this.state.svg.selectAll("path.domain").remove();
-		this.state.svg.selectAll("text.scores").remove();
-		this.state.svg.selectAll("#specieslist").remove();
+		// this.state.svg.selectAll("path.domain").remove();
+		// this.state.svg.selectAll("text.scores").remove();
+		// this.state.svg.selectAll("#specieslist").remove();
 
 		this.state.svg.append("line")
 			.attr("transform","translate(" + (this.state.textWidth + this.state.xOffsetOver + 30) + "," + lineY + ")")
@@ -2281,62 +2177,6 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 			.attr("stroke-width", 1);
 	},
 
-	_createTextScores: function() {
-		var self = this;
-		var gridRegion = self.state.gridRegion[0]; 
-		var list = [];
-		var xWidth = self.state.widthOfSingleCell;
-		var scale = null;
-		var y =0;
-		if (!this.state.invertAxis) {
-			list = self.state.xAxisRender.keys();
-			scale = self.state.xAxisRender.getScale();
-		} else {
-			list = self.state.yAxisRender.keys();
-			scale = self.state.yAxisRender.getScale();			
-		}
-
-		this.state.svg.selectAll("text.scores")
-			.data(list)
-			.enter()
-			.append("text")
-			.attr("height", 10)
-			.attr("id", "scorelist")
-			.attr("width", xWidth)
-			.attr("class", "scores")
-			// don't show score if it is a dummy model.
-			.text(function (d, i){ 
-				if (d === self.state.dummyModelName) {
-					return "";
-				} else {
-					var el = self.state.xAxisRender.itemAt(i);
-					return el.score;
-				}})
-			.style("font-weight","bold")
-			.style("fill",function(d) {
-				var el = self.state.dataManager.getDetail(d.source_id, d.target_id, d.species);
-				return self._getColorForModelValue(self, d.species, el.value[self.state.selectedCalculation]);
-				//return self._getColorForCellValue(self,self._getAxisData(d).species,self._getAxisData(d).score);
-			});
-
-			if (this.state.invertAxis){
-				this.state.svg.selectAll("text.scores").attr("y", function(d) {
-					//return self._getAxisDataPosition(d) + 5;  // self._getAxisData(d).ypos + 5;
-						return y += 13;
-				});
-				this.state.svg.selectAll("text.scores").attr("x", 230);  // MKD:
-				//this.state.svg.selectAll("text.scores").attr("transform", "translate(" + (this.state.textWidth + 20) + "," + 40 + ")");
-				this.state.svg.selectAll("text.scores").attr("transform","translate(0, " + (this.state.yModelRegion+5) + ")");
-			} else {
-				this.state.svg.selectAll("text.scores").attr("x",function(d,i){return i * xWidth;});
-				//this.state.svg.selectAll("text.scores").attr("y", 0);
-				//this.state.svg.selectAll("text.scores").attr("transform", "translate(" + (this.state.textWidth + 54) + "," + this.state.yoffset + ")");
-			 	this.state.svg.selectAll("text.scores").attr("transform", "translate(" + (gridRegion.x + self.state.xScale(i)*gridRegion.xpad) +
-	      				 "," + (gridRegion.y-gridRegion.scoreOffset ) +")");
-			 	this.state.svg.selectAll("text.scores").attr("x", 0);
-			 	this.state.svg.selectAll("text.scores").attr("y",scale.rangeBand()+2);
-			}
-	},
 
 	// Add species labels to top of Overview
 	_createOverviewSpeciesLabels: function () {
@@ -2840,8 +2680,8 @@ console.log(list);
 				if (txt === undefined) {
 					txt = d;
 				}
-				txt = self._getShortLabel(txt);
-				return self._decodeHtmlEntity(txt);
+				txt = Utils.getShortLabel(txt);
+				return Utils.decodeHtmlEntity(txt);
 			});
 
 	// MKD: should probably move this
@@ -3084,7 +2924,7 @@ console.log(list);
 			var url = this.state.serverURL + "/neighborhood/" + id + "/" + depth + "/" + direction + "/" + relationship + ".json";
 		        //console.log("getting hpo data .. url is ..."+url);
 			var taxon = this._getTargetSpeciesTaxonByName(this,this.state.targetSpeciesName);
-			var results = this._ajaxLoadData(taxon,url);
+			var results = null;  //   HANDLE THIS IN THE DATALOADER this._ajaxLoadData(taxon,url);
 			if (typeof (results) !== 'undefined') {
 				edges = results.edges;
 				nodes = results.nodes;
@@ -3243,24 +3083,6 @@ console.log(list);
 // MKD: REFACTOR TO USE DM
 		this.state.modelData = newModelData;
 		return newModelList;
-	},
-
-	// encode any special chars 
-	_encodeHtmlEntity: function(str) {
-		if (str !== null) {
-			return str
-			.replace(/»/g, "&#187;")
-			.replace(/&/g, "&amp;")
-			.replace(/</g, "&lt;")
-			.replace(/>/g, "&gt;")
-			.replace(/"/g, "&quot;")
-			.replace(/'/g, "&#039;");
-		}
-		return str;
-	},
-
-	_decodeHtmlEntity: function(str) {
-		return $('<div></div>').html(str).text();
 	},
 
 	// get the css styling for expanded gene/genotype

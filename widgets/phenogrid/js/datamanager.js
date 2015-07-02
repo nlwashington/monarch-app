@@ -100,7 +100,7 @@ DataManager.prototype = {
 	*/
  	cellPointMatch: function (key1, key2, species) {
 
-	     var rec= null;
+	     var rec;
 	     if (typeof(this.cellData[species]) !== 'undefined') {
 		 if (typeof(this.cellData[species][key1]) !== 'undefined') {
 		     if (typeof (this.cellData[species][key1][key2]) !== 'undefined') {
@@ -143,23 +143,20 @@ DataManager.prototype = {
 	    return matchList;
 	},
 
-        /** DON't think I need this
-	match: function (key, species) {
-		var rec = null;
-		for (var i=0; i < this.cellData[species].length; i++) {
-			var cellIdSource = this.cellData[species][i].source_id;
-			var cellIdTarget = this.cellData[species][i].target_id;
-			if ( cellIdSource== key) {				
-				rec = this.cellData[species][i];
-				break;
-			} else if (cellIdTarget == key) {
-				rec = this.cellData[species][i];
-				break;
-			}
+	getTargetSourceElement: function (data) {
+		var rec;
+		var key = data.id;  //both source/targets have id's
+
+		// check whether it's in the sources
+		rec = this.source[key];
+
+		// if not check as target
+		if (typeof(rec) == 'undefined') {
+			var species = data.species;
+			rec = this.target[species][key];
 		}
 		return rec;
-		},***/
-
+	},
     
 	/*
 		Function: keys
@@ -196,8 +193,29 @@ DataManager.prototype = {
 		}
 		return el;
 	},
-	getDetail: function (s, t, species) {
-	 	return this.cellData[species][s][t]; 
+
+	/*
+		Function: getCellDetail
+			gets detailed from the cell data
+	
+		Parameters:
+			s - source key
+			t - target key 
+			species - species
+
+		Returns:
+			object
+	*/	
+	getCellDetail: function (s, t, species) {
+		var rec;
+		try {
+			rec = this.cellData[species][s][t];
+		} catch (err) {
+			console.log(err);
+			// if error, check for inverted source and target keys
+			rec = this.cellData[species][t][s];
+		}
+	 	return rec;
 	},
 	/*
 		Function: contains
@@ -218,40 +236,50 @@ DataManager.prototype = {
 		return true;
 	}, 	
 
-	getMatrix: function(xvals, yvals, species, invertAxis) {
+	/*
+		Function: getMatrix
+
+			builds a matrix data set from the source and target lists 
+
+		Parameters:
+			xvals - target value list
+			yvals - source value list
+
+
+		Returns:
+			array
+	*/
+	getMatrix: function(xvals, yvals) {
 		var self = this;
 	    var xvalues = xvals, yvalues = yvals;     
-	    var matrix = []; 
+	    var matrix = [], species; 
 
-		yvalues.forEach(function(d, i) {
-			var results = self.matches(d, species); 
-			if (results != null ) {
-				var list = [];
-			    for (var a in results) {
-//			    	console.log(JSON.stringify(results[a]));
-			    	if (typeof(results[a]) !== 'undefined') {
-						var	xPos, yPos;
+	    for (var y=0; y < yvalues.length; y++ ) {
+    		var list = [];
+			for (var x=0; x < xvalues.length; x++ ) {
 
-						// get the x/y positions based on the ordered index
-				    	if (invertAxis) { 
-				    		xPos = xvalues.indexOf(results[a].source_id);
-				    		yPos = yvalues.indexOf(results[a].target_id);
-						} else {
-				    		xPos = xvalues.indexOf(results[a].target_id);
-				    		yPos = yvalues.indexOf(results[a].source_id);
-						}
-						if (yPos > -1 && xPos > -1) {  // if > -1 , then it's in the viewable rendered range
-							var rec = {source_id: results[a].source_id, target_id: results[a].target_id, xpos: xPos, 
-											ypos: yPos, species: results[a].species};
-							list.push(rec);
-						}
- 					}
- 				}
-				matrix.push(list);
+				var species = this._getSpecies(yvalues[y], xvalues[x]);
+				// does a match exist in the cells
+				if (typeof(this.cellPointMatch(yvalues[y].id, xvalues[x].id, species)) !== 'undefined') {
+					var rec = {source_id: yvalues[y].id, target_id: xvalues[x].id, xpos: x, 
+								ypos: y, species: species};
+					list.push(rec);
+				}
 			}
-		});
+			if (list.length > 0) matrix.push(list);	
+		}
 
 	    return matrix;
+	},
+
+	// simple internal function for extracting out the species
+	_getSpecies: function(el1, el2) {
+		if (typeof(el1.species) !== 'undefined') {
+			return el1.species;
+		}
+		if (typeof(el2.species) !== 'undefined') {
+			return el2.species;
+		}		
 	},
 
 	/*
@@ -276,6 +304,32 @@ DataManager.prototype = {
 		this.target = this.dataLoader.getTargets();
 		this.source = this.dataLoader.getSources();
 		this.cellData = this.dataLoader.getCellData();
+	},
+
+	/*
+		Function: createCombinedTargetList
+
+			generates a combined target list for multiple organisms/species
+
+		Parameters:
+			targetSpeciesList - species list
+			limit - specify the number limit of targets from each species
+
+	*/
+	createCombinedTargetList: function(targetSpeciesList, limit) {
+		var combinedTargetList = [];
+		// loop thru for the number of comparisons
+
+		for (var e in targetSpeciesList) {
+			var data = this.getData("target", targetSpeciesList[e].name);
+			var i=0;
+			for (var idx in data) {
+				combinedTargetList.push(data[idx]);
+				i++;
+				if (i >= limit) break;
+			}
+		}
+		return combinedTargetList;
 	}
 };
 

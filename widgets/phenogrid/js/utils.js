@@ -37,3 +37,37 @@ Utils.normalizeIC = function(datarow, maxICScore){
 
 		return ics;
 };
+
+// return a label for use in the list. This label is shortened to fit within the space in the column
+Utils.getShortLabel = function(label, newlength) {
+	if (label !== undefined){
+		var retLabel = label;
+		if (!newlength) {
+			newlength = 34;  //this.state.textLength;
+		}
+		if (label.length > newlength) {
+			retLabel = label.substring(0,newlength-3) + "...";
+		}	
+		return retLabel;
+	}else {
+		return "Unknown";
+	}
+};
+
+	// encode any special chars 
+Utils.encodeHtmlEntity = function(str) {
+	if (str !== null) {
+		return str
+		.replace(/»/g, "&#187;")
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
+	}
+	return str;
+};
+
+Utils.decodeHtmlEntity = function(str) {
+	return $('<div></div>').html(str).text();
+};

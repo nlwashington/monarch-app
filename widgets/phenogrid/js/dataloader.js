@@ -48,7 +48,9 @@ DataLoader.prototype = {
 		// save the original source listing
 		this.origSourceList = qrySourceList;
 
-		if (typeof(species) == 'object') speciesName = species;
+		if (typeof(species) == 'object') {
+			speciesName = species;
+		}
 		else if (typeof(species) == 'string') {
 			speciesName = [species];
 		}
@@ -64,6 +66,7 @@ DataLoader.prototype = {
 		    	url += "&limit=" + limit;
 			}
 		    console.log(url);
+		    //TODO: Make call to function below
 			jQuery.ajax({
 				url: url, 
 				async : false,
@@ -247,6 +250,40 @@ DataLoader.prototype = {
 
 	refresh: function(species) {
 		this.transform(species);
+	},
+
+	// generic ajax call for all queries
+	ajaxLoadData: function (target, url) {
+		var self = this;
+		var res;
+		jQuery.ajax({
+			url: url, 
+			async : false,
+			dataType : 'json',
+			success : function(data) {
+				res = data;
+			},
+			error: function (xhr, errorType, exception) { 
+			// Triggered if an error communicating with server
+
+			switch(xhr.status){
+				case 404:
+				case 500:
+				case 501:
+				case 502:
+				case 503:
+				case 504:
+				case 505:
+				default:
+					console.log("We're having some problems. Please try again soon.");
+					break;
+				case 0: 
+					console.log("Please check your network connection.");
+					break;
+				}
+			} 
+		});
+		return res;
 	}
 
 }
