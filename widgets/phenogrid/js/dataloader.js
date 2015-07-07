@@ -66,35 +66,37 @@ DataLoader.prototype = {
 		    	url += "&limit=" + limit;
 			}
 		    console.log(url);
+
+		    res = this.fetch(url);
 		    //TODO: Make call to function below
-			jQuery.ajax({
-				url: url, 
-				async : false,
-				dataType : 'json',
-				success : function(data) {
-					res = data;
-				},
-				error: function (xhr, errorType, exception) { 
-					var msg;
-					// Triggered if an error communicating with server
-					switch(xhr.status){
-					case 404:
-					case 500:
-					case 501:
-					case 502:
-					case 503:
-					case 504:
-					case 505:
-					default:
-						msg = "We're having some problems. Please try again soon.";
-						break;
-					case 0: 
-						msg = "Please check your network connection.";
-						break;
-					}
-					console.log(msg);
-				} 
-			});	
+			// jQuery.ajax({
+			// 	url: url, 
+			// 	async : false,
+			// 	dataType : 'json',
+			// 	success : function(data) {
+			// 		res = data;
+			// 	},
+			// 	error: function (xhr, errorType, exception) { 
+			// 		var msg;
+			// 		// Triggered if an error communicating with server
+			// 		switch(xhr.status){
+			// 		case 404:
+			// 		case 500:
+			// 		case 501:
+			// 		case 502:
+			// 		case 503:
+			// 		case 504:
+			// 		case 505:
+			// 		default:
+			// 			msg = "We're having some problems. Please try again soon.";
+			// 			break;
+			// 		case 0: 
+			// 			msg = "Please check your network connection.";
+			// 			break;
+			// 		}
+			// 		console.log(msg);
+			// 	} 
+			// });	
 
 
 			// if (typeof (res) !=='undefined' && res !== null) {
@@ -253,7 +255,7 @@ DataLoader.prototype = {
 	},
 
 	// generic ajax call for all queries
-	ajaxLoadData: function (target, url) {
+	fetch: function (url) {
 		var self = this;
 		var res;
 		jQuery.ajax({
