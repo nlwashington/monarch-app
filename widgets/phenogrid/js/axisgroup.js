@@ -35,7 +35,7 @@ AxisGroup.prototype = {
 	},
 	setRenderStartPos: function(position) {
 		// don't allow out of position starts
-		if (position < 0 || position > this.groupSize()) {
+		if (position < 0 || position > this.groupLength()) {
 			position = 0; // default to zero
 		}
 
@@ -54,8 +54,8 @@ AxisGroup.prototype = {
 	},
 	setRenderEndPos: function(position) {
 		// don't let the postion go pass the max group size
-		if (position > this.groupSize()) {
-			position = this.groupSize();
+		if (position > this.groupLength()) {
+			position = this.groupLength();
 		}		
 		this.renderEndPos = position;
 	},	
