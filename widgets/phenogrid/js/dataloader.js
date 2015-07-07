@@ -166,7 +166,7 @@ DataLoader.prototype = {
 					 "species": item.taxon.label, 
 					 "taxon": item.taxon.id, 
 					 "type": type, 
-					 "rank": parseInt(idx), 
+					 "rank": parseInt(idx)+1,  // start with 1 not zero
 					 "score": item.score.score};  
 				this.targetData[species][targetID] = t;
 
