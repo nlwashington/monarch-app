@@ -119,9 +119,9 @@ var url = document.URL;
 		preloadHPO: false,	// Boolean value that allows for preloading of all HPO data at start.  If false, the user will have to manually select what HPO relations to load via hoverbox.
 		titleOffsets: [{"main": {x:220, y:0}, "disease": {x:0, y:100}}],
 		gridRegion: [{x:254, y:150, // origin coordinates for grid region
-						ypad:12, xpad:15, // x/y padding between the label and grid
+						ypad:10, xpad:15, // x/y padding between the label and grid
 						cellwd:7, cellht:7, // // cell width and height
-						rowLabelOffset:-20, colLabelOffset:30,   // row and col label offsets
+						rowLabelOffset:-20, colLabelOffset:35,   // row and col label offsets
 						scoreOffset:20  // score text offset
 					}]
 		//overviewRegion:[{x:}]
@@ -503,17 +503,17 @@ var url = document.URL;
 		var row = this.state.svg.selectAll(".row")
   			.data(matrix)
 		.enter().append("g")
-  			.attr("class", "grid_labels")
+  			.attr("class", "grid_row")
   			.attr("transform", function(d, i) { 
   				return "translate(" + gridRegion.x +"," + (gridRegion.y+self.state.yScale(i)*gridRegion.ypad) + ")"; })
   			.each(createrow);
-/*
+
 		row.append("line")
-			.attr("stroke-width", ".1")
-			.attr("stroke", "gray")
-      		.attr("x2", ((gridRegion.x-gridRegion.ypad) + (xvalues.length * gridRegion.ypad)-5));
-*/
+			.attr("class", "grid_line")
+      		.attr("x2", ((gridRegion.x-gridRegion.ypad) + (xvalues.length * gridRegion.ypad)));
+
 	  	row.append("text")
+			.attr("class", "grid_label")	  	
 	      	.attr("x", gridRegion.rowLabelOffset)
 	      	.attr("y",  function(d, i) {
 	      			 var rb = self.state.yScale.rangeBand(i)/2;
@@ -529,13 +529,14 @@ var url = document.URL;
 	  	var column = this.state.svg.selectAll(".column")
 	      .data(xvalues)
 	    .enter().append("g")
-	      .attr("class", "grid_labels")
+	      .attr("class", "grid_col_label")
 	      .attr("transform", function(d, i) { 
 	      	var p = self.state.xScale(i);
 	      	return "translate(" + (gridRegion.x + self.state.xScale(i)*gridRegion.xpad) +
-	      				 "," + (gridRegion.y-gridRegion.colLabelOffset) + ")rotate(-45)"; }); //-45
+	      				 "," + (gridRegion.y-gridRegion.colLabelOffset) + ")rotate(-60)"; }); //-45
 
 	  	column.append("text")
+	  		.attr("class", "grid_label")
 	      	.attr("x", 0)
 	      	.attr("y", self.state.xScale.rangeBand()+2)  //2
 		    .attr("dy", ".32em")
@@ -596,12 +597,12 @@ var url = document.URL;
 		}
 	    var scores = this.state.svg.selectAll(".scores")
 	      .data(list)
-	    .enter().append("g");
+	    .enter().append("g")
+	    	.attr("class", "grid_score");
 
-	    scores.append("text")
-	    	.attr("id", "scorelist")
-	  		.attr("class", "grid_labels")	      
-		    .attr("dy", ".32em")
+	    scores.append("text")	  		
+	    	.attr("class", "score_text")
+		    //.attr("dy", ".32em")
 		    .attr("fill", function(d, i) {
 		    	var el = axRender.itemAt(i);
 				return self._getColorForCellValue(self, el.species, el.score);
@@ -895,7 +896,7 @@ var url = document.URL;
 					var jj = self._invertOverviewDragPosition(self.state.smallYScale,newY);
 					var newYPos = jj + yCount;
 
-					self._updateCells(newXPos, newYPos);
+					self._updateGrid(newXPos, newYPos);
 		}));
 		// set this back to 0 so it doesn't affect other rendering
 	},
@@ -2060,7 +2061,7 @@ var url = document.URL;
 	 * Change the list of phenotypes and filter the models accordingly. The 
 	 * Movecount is an integer and can be either positive or negative
 	 */
-	_updateCells: function(newXPos, newYPos){
+	_updateGrid: function(newXPos, newYPos){
 		var xSize = this.state.xAxisRender.groupLength();
 		var ySize = this.state.yAxisRender.groupLength();
 		var newXEndPos, newYEndPos;
@@ -2091,13 +2092,8 @@ console.log("xaxis start:" + this.state.xAxisRender.getRenderStartPos() + " end:
 
 console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:"+this.state.yAxisRender.getRenderEndPos());
 
-		this._clearXLabels();
-
-//		this._createXRegion();
-//		this._createYRegion();
-//		this._createSpeciesBorderOutline();
-		//this._createCellRects();
-		this._reDraw();
+		this._clearGrid();
+		this._createGrid();
 
 		/*
 		 * this must be initialized here after the _createModelLabels, or the mouse events don't get
@@ -2126,6 +2122,12 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 	_clearXLabels: function() {
 		this.state.svg.selectAll("g .x.axis").remove();
 		this.state.svg.selectAll("g .tick.major").remove();
+	},
+
+	_clearGrid: function() {
+		this.state.svg.selectAll("g.grid_row").remove();
+		this.state.svg.selectAll("g.grid_col_label").remove();
+		this.state.svg.selectAll("g.grid_score").remove();
 	},
 
 	// Previously _createModelLines
@@ -2276,7 +2278,7 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 			})
 			.style("opacity", '0.4')
 			.attr("fill", function(d, i) {
-				return i != 1 ? d3.rgb("#e5e5e5") : "white";
+				return i != 0 ? d3.rgb("#eee") : "white";
 			});
 
 		return gridHeight + self.state.yModelRegion;
