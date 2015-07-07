@@ -244,12 +244,12 @@ DataManager.prototype = {
 		Parameters:
 			xvals - target value list
 			yvals - source value list
-
+			flattened - flag to flatten the array into a single list of data points
 
 		Returns:
 			array
 	*/
-	getMatrix: function(xvals, yvals) {
+	getMatrix: function(xvals, yvals, flattened) {
 		var self = this;
 	    var xvalues = xvals, yvalues = yvals;     
 	    var matrix = [], species; 
@@ -263,12 +263,17 @@ DataManager.prototype = {
 				if (typeof(this.cellPointMatch(yvalues[y].id, xvalues[x].id, species)) !== 'undefined') {
 					var rec = {source_id: yvalues[y].id, target_id: xvalues[x].id, xpos: x, 
 								ypos: y, species: species};
-					list.push(rec);
+					// this will create a array as a 'flattened' list of data points
+					if (flattened) {
+						matrix.push(rec);
+					} else {  // else, just create an array of arrays
+						list.push(rec);	
+					}
+					
 				}
 			}
-			if (list.length > 0) matrix.push(list);	
+			if (list.length > 0 && !flattened) matrix.push(list);	
 		}
-
 	    return matrix;
 	},
 
