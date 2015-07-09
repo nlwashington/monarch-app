@@ -39,12 +39,27 @@ body {
 .row_accent,
 .model_accent {
 	/*stroke:#ea763b;*/
+	/*
 	stroke:#4CA092;
-	stroke-width: 2;
+	stroke-width: 1;
 	fill: #4CA092;   //#ffffff;  
 	fill-opacity: 0.1;    //0.05;
+	*/
+	stroke:#EA763B;
+	stroke-width: 1;
 }
 
+.row_accent_reset{
+	/*stroke:#ea763b;*/
+	/*
+	stroke:#4CA092;
+	stroke-width: 1;
+	fill: #4CA092;   //#ffffff;  
+	fill-opacity: 0.1;    //0.05;
+	*/
+
+    border: none;
+}
 .gene_accent {
 	/*stroke:#ea763b;*/
 	stroke:#4CA092;
@@ -76,9 +91,8 @@ body {
 }
 
 .grid_label {
-	font-family: Arial;	
+	font-family: Arial, Helvetica, sans-serif;
 	font-size:11px;
-	/*fill: #0F473E;*/
 }
 
 .grid_background {
@@ -86,8 +100,14 @@ body {
 	fill-opacity: 0.3;	
 }
 .grid_line {
-	stroke-width: .1;
-	stroke: #fff;
+	stroke-width: 1;
+	stroke: black;
+}
+
+.grid_row {
+	height: 100%;
+	width: 100%;
+	border: 1px black solid;
 }
 
 #detail_text {
@@ -117,8 +137,9 @@ body {
 
 #svg_area {
 	float:left;
-	margin-top: -35px;
-	padding-top: 35px;
+	margin-top: 0px;
+	/*padding-top: 35px;*/
+	z-index: 99;
 	/*height:500px;  !important;*/
 }
 
@@ -327,12 +348,12 @@ body {
 }
 
 #svg_container {
-	margin-top:40px;
+	margin-top:10px;
 }
 
 #specieslist {
 	font-weight:bold;
-	font-size:1.2em;
+	font-size: .875em;
 }
 
 #err {
