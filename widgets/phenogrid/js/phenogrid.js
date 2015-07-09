@@ -68,7 +68,7 @@ var url = document.URL;
 		colStartingPos: 10,
 		detailRectWidth: 300,
 		detailRectHeight: 140,
-		detailRectStrokeWidth: 3,
+		detailRectStrokeWidth: 1,
 		globalViewSize : 110,
 		reducedGlobalViewSize: 50,
 		minHeight: 310,
@@ -95,7 +95,7 @@ var url = document.URL;
 			{ abbrev: "FB", label: "Fly"},
 			{ abbrev: "GO", label: "Gene Ontology"},
 			{ abbrev: "UDPICS", label: "UDP Patients"}],
-		dataDisplayCount: 30,
+		defaultTargetDisplayCount: 30,
 		labelCharDisplayCount : 20,
 		apiEntityMap: [ {prefix: "HP", apifragment: "disease"},
 			{prefix: "OMIM", apifragment: "disease"}, 
@@ -117,11 +117,11 @@ var url = document.URL;
 		dummyModelName: "dummy",
 		simServerURL: "",  // URL of the server for similarity searches
 		preloadHPO: false,	// Boolean value that allows for preloading of all HPO data at start.  If false, the user will have to manually select what HPO relations to load via hoverbox.
-		titleOffsets: [{"main": {x:220, y:0}, "disease": {x:0, y:100}}],
+		titleOffsets: [{"main": {x:280, y:15}, "disease": {x:0, y:100}}],
 		gridRegion: [{x:254, y:150, // origin coordinates for grid region
-						ypad:10, xpad:15, // x/y padding between the label and grid
+						ypad:10, xpad:15, // x/y padding between the labels and grid
 						cellwd:7, cellht:7, // // cell width and height
-						rowLabelOffset:-20, colLabelOffset:35,   // row and col label offsets
+						rowLabelOffset:-25, colLabelOffset:35,   // row and col label offsets
 						scoreOffset:20  // score text offset
 					}]
 		//overviewRegion:[{x:}]
@@ -433,17 +433,17 @@ var url = document.URL;
 
     _setAxisDisplayLimits: function() {
     			// set default display limits based on displaying 30
-		if (this.state.dataManager.length("source") > this.state.dataDisplayCount) {
-			this.state.sourceDisplayLimit = this.state.dataDisplayCount;
+		if (this.state.dataManager.length("source") > this.state.defaultTargetDisplayCount) {
+			this.state.sourceDisplayLimit = this.state.defaultTargetDisplayCount;
 		} else {
 			this.state.sourceDisplayLimit = this.state.dataManager.length("source");
 		}
 
 		if (this.state.targetSpeciesName == 'Overview') {
-			this.state.targetDisplayLimit = this.state.dataDisplayCount;
+			this.state.targetDisplayLimit = this.state.defaultTargetDisplayCount;
 		} else {
-			if (this.state.dataManager.length("target", this.state.targetSpeciesName) > this.state.dataDisplayCount) {
-				this.state.targetDisplayLimit = this.state.dataDisplayCount;
+			if (this.state.dataManager.length("target", this.state.targetSpeciesName) > this.state.defaultTargetDisplayCount) {
+				this.state.targetDisplayLimit = this.state.defaultTargetDisplayCount;
 			} else {
 				this.state.targetDisplayLimit = this.state.dataManager.length("target", this.state.targetSpeciesName);
 			}
@@ -464,13 +464,20 @@ var url = document.URL;
 
 			this._initCanvas();
 			this._addLogoImage();
-			var rectHeight = this._createRectangularContainers();
+			//var rectHeight = this._createRectangularContainers();
 
 //			this._createXRegion();
 			// this._createYRegion();
 //			self._createGridlines();
-			this._createXLines();
+
+			this._buildAxisPositionList();  // MKD: THIS NEEDS REFACTORED
+		//	this._createXLines();
+		//	this._createYLines();
 			this._addPhenogridControls();
+			this._createSpeciesBorderOutline();
+			if (this.state.owlSimFunction != 'compare' && this.state.owlSimFunction != 'exomiser'){
+				this._createOverviewSpeciesLabels();
+			}
 			this._createGrid();
 			this._createOverviewSection();
 
@@ -493,6 +500,8 @@ var url = document.URL;
 		var yvalues = self.state.yAxisRender.entries();
 		var gridRegion = self.state.gridRegion[0]; 
 		var invertAxis = self.state.invertAxis;
+		var lastRowHighlighted=0;
+		var gridWidth = gridRegion.x + (self.state.xAxisRender.displayLength() * gridRegion.cellwd)-5;
 
 		this.state.xScale = this.state.xAxisRender.getScale();
 		this.state.yScale = this.state.yAxisRender.getScale();
@@ -503,14 +512,16 @@ var url = document.URL;
 		var row = this.state.svg.selectAll(".row")
   			.data(matrix)
 		.enter().append("g")
-  			.attr("class", "grid_row")
+			.attr("class", "grid_row")
+			.attr("id", function(d, i) { 
+				return "grid_row_"+i;})
   			.attr("transform", function(d, i) { 
   				return "translate(" + gridRegion.x +"," + (gridRegion.y+self.state.yScale(i)*gridRegion.ypad) + ")"; })
   			.each(createrow);
 
-		row.append("line")
-			.attr("class", "grid_line")
-      		.attr("x2", ((gridRegion.x-gridRegion.ypad) + (xvalues.length * gridRegion.ypad)));
+		 // row.append("line")
+		 // 	.attr("class", "grid_line")
+   //     		.attr("x2", gridWidth);
 
 	  	row.append("text")
 			.attr("class", "grid_label")	  	
@@ -552,6 +563,7 @@ var url = document.URL;
 		    var cell = d3.select(this).selectAll(".cell")
 		        .data(row)
 		      .enter().append("rect")
+		      	.attr("id", function(d) {return 'cell_' + d.source_id+d.target_id;})
 		        .attr("class", "cell")
 		        .attr("x", function(d) { 
 		        		return d.xpos * gridRegion.xpad;})
@@ -569,15 +581,30 @@ var url = document.URL;
 		        .on("mouseout", mouseout);
 		}
 
-	  	function mouseover(p) {
-	  		console.log(p);
-	  		//self._selectYItem(p, d3.mouse(this));
-		    d3.selectAll(".row text").classed("active", function(d, i) { return i == d.ypos; });
-				d3.selectAll(".column text").classed("active", function(d, i) { return i == d.xpos; });
-		  }
+		function mouseover (p) {
+			console.log("mouseover:  g#grid_row_" + lastRowHighlighted+ '.grid_row');
+//	  		self._highlightIntersection(p, d3.mouse(this), self);
+	  		d3.selectAll("g#grid_row_" + p.ypos + '.grid_row') // + ' rect#cell_' + p.source_id+p.target_id)
+					.attr("class", "row_accent");
+					// .style("stroke", 'black')
+  			// 		.style("fill", "gray")
+  			// 		.style("stroke-width", 1);
+			lastRowHighlighted = p.ypos;
+		  //   d3.selectAll("g.row text").classed("active", function(d, i) { return i == d.ypos; });
+				// d3.selectAll("g.column text").classed("active", function(d, i) { return i == d.xpos; });
+		}
+	  	// function mouseover(p) {
+	  	// 	console.log(p);
+	  	// 	//self._selectYItem(p, d3.mouse(this));
+		  //   d3.selectAll(".row text").classed("active", function(d, i) { return i == d.ypos; });
+				// d3.selectAll(".column text").classed("active", function(d, i) { return i == d.xpos; });
+		  // }
 
-			function mouseout() {
-			d3.selectAll("text").classed("active", false);
+		function mouseout() {
+			console.log("mouseout:  g#grid_row_" + lastRowHighlighted);
+			d3.selectAll("g#grid_row_" + lastRowHighlighted)
+				.attr("class", "row_accent_reset");
+			//d3.selectAll("text").classed("active", false);
 		}
 	},
 
@@ -602,7 +629,7 @@ var url = document.URL;
 
 	    scores.append("text")	  		
 	    	.attr("class", "score_text")
-		    //.attr("dy", ".32em")
+		    .attr("dy", ".32em")
 		    .attr("fill", function(d, i) {
 		    	var el = axRender.itemAt(i);
 				return self._getColorForCellValue(self, el.species, el.score);
@@ -614,10 +641,10 @@ var url = document.URL;
 	      	})
 	      	;
 
-	    if (self.state.invertAxis) { 
+	    if (self.state.invertAxis) { // score are render vertically
 			scores
 				.attr("transform", function(d, i) { 
-  					return "translate(" + (gridRegion.x-gridRegion.xpad) +"," + (gridRegion.y+scale(i)*gridRegion.ypad+6) + ")"; })
+  					return "translate(" + (gridRegion.x-gridRegion.xpad-5) +"," + (gridRegion.y+scale(i)*gridRegion.ypad+6) + ")"; })
 	      		.attr("x", gridRegion.rowLabelOffset)
 	      		.attr("y",  function(d, i) {return scale.rangeBand(i)/2;});  
 	    } else {
@@ -747,7 +774,7 @@ var url = document.URL;
 		var yTranslation = 30;
 
 		// these translations from the top-left of the rectangular region give the absolute coordinates
-		var overviewX = self.state.axis_pos_list[2] + xTranslation;
+		var overviewX = self.state.axis_pos_list[2] + xTranslation;    //MKD NEEDS REFACTORED TO ELIMINATE AXIS_POS_LIST ARRAY
 		var overviewY = self.state.yModelRegion + yTranslation;
 
 		// size of the entire region - it is a square
@@ -1283,7 +1310,7 @@ var url = document.URL;
 		}
 
 		var mtitle = this.state.svg.append("svg:text")
-			.attr("class","gridtitle")
+			.attr("class","stitle")
 			.attr("id","toptitle2")
 			.attr("x",x) 		//xoffset)
 			.attr("y", y)		//this.state.gridTitleYOffset)
@@ -1505,7 +1532,7 @@ var url = document.URL;
 		var self = this;
 	    //var displayCount = self._getYLimit();
 	    var sourceDisplayCount = self.state.yAxisRender.displayLength();
-		var concept = self._getConceptId(data);
+		var concept = Utils.getConceptId(data);
 		//console.log("selecting x item.."+concept);
 		var appearanceOverrides;
 
@@ -1719,7 +1746,7 @@ var url = document.URL;
 				return x;})
 			.attr('y', y)
 			.attr("width", width)
-			.attr("id", self._getConceptId(data))
+			.attr("id", Utils.getConceptId(data))
 			.attr("model_id", data)
 			.attr("height", 60)
 			.attr("transform", function(d) {
@@ -1907,12 +1934,14 @@ var url = document.URL;
 		var self = this;
 		var list = [];
 		var ct, width, height, borderStroke;
-		var vwidthAndGap = self.state.heightOfSingleCell;
-		var hwidthAndGap = self.state.widthOfSingleCell;
+		var gridRegion = self.state.gridRegion[0];
+		var vwidthAndGap = gridRegion.cellht;     //self.state.heightOfSingleCell;
+		var hwidthAndGap = gridRegion.cellwd;     //self.state.widthOfSingleCell;
 		var totCt = 0;
 		var parCt = 0;
 	    var displayCount = self.state.yAxisRender.displayLength();
 	    var displayCountX = self.state.xAxisRender.displayLength();
+
 
 		// Have temporarly until fix for below during Axis Flip
 		if (self.state.targetSpeciesName == "Overview"){
@@ -1920,28 +1949,29 @@ var url = document.URL;
 				list = self.state.speciesList;
 				ct = self.state.multiOrganismCt;
 				borderStroke = self.state.detailRectStrokeWidth / 2;
-				width = hwidthAndGap * displayCountX;
-				height = vwidthAndGap * ct + borderStroke;
+				width = gridRegion.x + hwidthAndGap * displayCountX;
+				height = gridRegion.y + vwidthAndGap * ct + borderStroke;
 			} else {
 				list = self.state.speciesList;
 				ct = self.state.multiOrganismCt;
 				borderStroke = self.state.detailRectStrokeWidth;
-				width = hwidthAndGap * ct;
-				height = vwidthAndGap * displayCount + borderStroke * 2;
+				width = gridRegion.x + hwidthAndGap * ct;
+				height = gridRegion.y + vwidthAndGap * displayCount + borderStroke * 2;
 			}
 		} else {
 			list.push(self.state.targetSpeciesName);
 			ct = displayCountX;
 			borderStroke = self.state.detailRectStrokeWidth;
-			width = hwidthAndGap * ct;
-			height = vwidthAndGap * displayCount + borderStroke * 2;
+			width = gridRegion.x + hwidthAndGap * ct;
+			height = gridRegion.y + vwidthAndGap * displayCount + borderStroke * 2;
 		}
 
 		var border_rect = self.state.svg.selectAll(".species_accent")
 			.data(list)
 			.enter()
 			.append("rect")
-			.attr("transform","translate(" + (self.state.textWidth + self.state.xOffsetOver + 30) + "," + (self.state.yoffsetOver) + ")")
+			//.attr("transform","translate(" + (self.state.textWidth + self.state.xOffsetOver + 30) + "," + (self.state.yoffsetOver) + ")")
+			.attr("transform","translate(" + (gridRegion.x-5) + "," + (gridRegion.y-5) + ")")	
 			.attr("class", "species_accent")
 			.attr("width", width)
 			.attr("height", height)
@@ -1956,7 +1986,7 @@ var url = document.URL;
 					if (i === 0) { return (self.state.yoffset + borderStroke); }
 					else {
 						parCt = totCt - ct;
-						return (self.state.yoffset + borderStroke) + ((vwidthAndGap) * parCt + i);
+						return (borderStroke) + ((vwidthAndGap) * parCt + i);
 					}
 				});
 			} else {
@@ -1968,7 +1998,7 @@ var url = document.URL;
 						return hwidthAndGap * parCt;
 					}
 				});
-				border_rect.attr("y", self.state.yoffset + 1);
+				//border_rect.attr("y", gridRegion.y + 1);
 			}
 	},
 
@@ -1986,25 +2016,36 @@ var url = document.URL;
 		}
 	},
 
-	_highlightIntersection: function(curr_data, obj){
-		var self = this;
-	    //var displayCount = self._getYLimit();
-	    var displayCount = self.state.yAxisRender.displayLength();
-		// Highlight Row
-		var highlight_rect = self.state.svg.append("svg:rect")
-			//.attr("transform","translate(" + (self.state.axis_pos_list[1]) + ","+ (self.state.yoffsetOver + 4 ) + ")")
-			.attr("transform","translate(254, " + (this.state.yModelRegion + 5) + ")")
-			.attr("x", 0) //12
-			.attr("y", function(d) {
-					var p = self.state.yAxisRender.position(curr_data.source_id);
-					console.log("position:"+p);
-				return  p * self.state.heightOfSingleCell; }) //rowid yID
-			.attr("class", "row_accent")
-			.attr("width", this.state.modelWidth - 4)
-			.attr("height", self.state.heightOfSingleCell);
+	_highlightIntersection: function(curr_data, obj, parent){
+		// var self = this;
+		// var gr = parent.state.gridRegion[0]; 
+		// var yAxisRender = parent.state.yAxisRender;	
+		// var xAxisRender = parent.state.xAxisRender;	
+	 //    var yCount = yAxisRender.displayLength();
+	 //    var xCount = xAxisRender.displayLength();
+	 //    var yScale = parent.state.yAxisRender.getScale();
+	 //   	var xScale = parent.state.xAxisRender.getScale();
+	 //   	var highlightWidth = xCount*gr.cellwd;
+		//console.log('yCount:' + yCount + ' xCount: ' + xCount + ' highlightWidth: ' + highlightWidth);
 
-		this.state.selectedRow = curr_data.source_id;  //yID;
-		this.state.selectedColumn = curr_data.target_id;    //xID;
+		console.log('x: ' + curr_data.xpos + ' y: ' + curr_data.ypos + ' g.grid_row_' + curr_data.ypos);
+		var obj = this.state.svg.selectAll("g#grid_row_" + curr_data.ypos + '.grid_row')
+					.attr("class", "row_accent");
+
+		// Highlight Row
+		// var highlight_rect = self.state.svg.append("svg:rect")
+		// 	//.attr("transform","translate(" + gr.x  +", " + (gr.y+yScale(curr_data.ypos)*gr.ypad)  + ")")
+		// 	.attr("transform","translate(" + gr.x  +", " + gr.y  + ")")
+		// 	.attr("x", 0) //12
+		// 	.attr("y", function(d) {
+		// 		console.log(curr_data.ypos * gr.cellht);
+		// 		return curr_data.ypos * gr.cellht; }) 
+		// 	.attr("class", "row_accent")
+		// 	.attr("width", highlightWidth)
+		// 	.attr("height", gr.cellht + 2);
+
+		//this.state.selectedRow = curr_data.source_id;  //yID;
+		//this.state.selectedColumn = curr_data.target_id;    //xID;
 		//this._resetLinks();
 
 		/*
@@ -2013,26 +2054,25 @@ var url = document.URL;
 		 * For the overview, there will be a 0th position for each species so we need to get the right model_id
 		 */
 
-		var source_label = this.state.svg.selectAll("text.a_text." + this._getConceptId(curr_data.source_id));  //yID
-		source_label.style("font-weight", "bold");
-		source_label.style("fill", "blue");
+		// var source_label = this.state.svg.selectAll("text.a_text." + Utils.getConceptId(curr_data.source_id));  //yID
+		// source_label.style("font-weight", "bold");
+		// source_label.style("fill", "blue");
 
-		// Highlight Column
-		var target_label = self.state.svg.selectAll("text#" + this._getConceptId(curr_data.target_id));  //xID
-		target_label.style("font-weight", "bold");
-		target_label.style("fill", "blue");
+		// // Highlight Column
+		// var target_label = self.state.svg.selectAll("text#" + Utils.getConceptId(curr_data.target_id));  //xID
+		// target_label.style("font-weight", "bold");
+		// target_label.style("fill", "blue");
 
 		// create the related model rectangles
-		var highlight_rect2 = self.state.svg.append("svg:rect")
-			.attr("transform","translate(" + (self.state.textWidth + self.state.xOffsetOver + 34) + "," +self.state.yoffsetOver+ ")")
-			.attr("x", function(d) { 
-				var p = self.state.xScale(curr_data.target_id) - 1;
-				console.log("xscale:"+p);
-				return p;})  // xID
-			.attr("y", self.state.yoffset + 2 )
-			.attr("class", "model_accent")
-			.attr("width", self.state.heightOfSingleCell)
-			.attr("height", (displayCount * self.state.heightOfSingleCell));
+		// var highlight_rect2 = self.state.svg.append("svg:rect")
+		// 	.attr("transform","translate(" + (gr.x + xScale(curr_data.xpos)*gr.xpad) + "," + (gr.y-gr.colLabelOffset) + ")")
+		// 	.attr("x", function(d) { 
+		// 						console.log("xpos:"+curr_data.xpos);
+		// 		return curr_data.xpos;})  // xID
+		// 	.attr("y", gr.y + 2 )
+		// 	.attr("class", "model_accent")
+		// 	.attr("width", gr.cellht)
+		// 	.attr("height", (yCount * gr.cellht));
 	},
 
 	_updateAxes: function() {
@@ -2134,43 +2174,46 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 	_createXLines: function() {
 		var modelLineGap = 10;
 		var lineY = this.state.yoffset - modelLineGap;
+		var len = this.state.xAxisRender.displayLength();
+		var width = this.state.gridRegion[0].x + (len * this.state.gridRegion[0].cellwd)-5;
 		// this.state.svg.selectAll("path.domain").remove();
 		// this.state.svg.selectAll("text.scores").remove();
 		// this.state.svg.selectAll("#specieslist").remove();
 
 		this.state.svg.append("line")
 			.attr("transform","translate(" + (this.state.textWidth + this.state.xOffsetOver + 30) + "," + lineY + ")")
+			.attr("class", "grid_line")			
 			.attr("x1", 0)
 			.attr("y1", 0)
-			.attr("x2", this.state.modelWidth)
+			.attr("x2", width)
 			.attr("y2", 0)
-			.attr("stroke", "#0F473E")
-			.attr("stroke-width", 1);
+			// .attr("stroke", "#0F473E")
+			// .attr("stroke-width", 1);
 	},
 
 	_createYLines: function() {
 	    var self = this;
 		var modelLineGap = 30;
 		var lineY = this.state.yoffset + modelLineGap;
-	    //var displayCount = self._getYLimit();
 	    var displayCount = self.state.yAxisRender.displayLength();
-		//this.state.svg.selectAll("path.domain").remove();
-		//this.state.svg.selectAll("text.scores").remove();
-		//this.state.svg.selectAll("#specieslist").remove();
+		var height = (displayCount * this.state.gridRegion[0].cellht);	    //this.state.gridRegion[0].y +
 
-		var gridHeight = displayCount * self.state.heightOfSingleCell + 10;
-		if (gridHeight < self.state.minHeight) {
-			gridHeight = self.state.minHeight;
-		}
+		// var gridHeight = displayCount * self.state.heightOfSingleCell + 10;
+		// if (gridHeight < self.state.minHeight) {
+		// 	gridHeight = self.state.minHeight;
+		// }
 
 		this.state.svg.append("line")
-			.attr("transform","translate(" + (this.state.textWidth + 15) + "," + lineY + ")")
+			//.attr("transform","translate(" + (this.state.textWidth + 15) + "," + lineY + ")")
+			.attr("transform","translate(" + (this.state.gridRegion[0].x - 5) + "," + 
+					(this.state.gridRegion[0].y-this.state.gridRegion[0].ypad) + ")")
+			.attr("class", "grid_line")
 			.attr("x1", 0)
 			.attr("y1", 0)
 			.attr("x2", 0)
-			.attr("y2", gridHeight)
-			.attr("stroke", "#0F473E")
-			.attr("stroke-width", 1);
+			.attr("y2", height)
+			// .attr("stroke", "#0F473E")
+			// .attr("stroke-width", 1);
 	},
 
 
@@ -2178,15 +2221,19 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 	_createOverviewSpeciesLabels: function () {
 		var self = this;
 		var speciesList = [];
+		var len = self.state.xAxisRender.displayLength();
+		var width = self.state.gridRegion[0].x + (len * self.state.gridRegion[0].cellwd)-5;
 
 		if (!this.state.invertAxis && self.state.targetSpeciesName == "Overview") {
 			speciesList = self.state.speciesList;
 		} else{
 			speciesList.push(self.state.targetSpeciesName);
 		}
-		var translation = "translate(" + (self.state.textWidth + self.state.xOffsetOver + 30) + "," + (self.state.yoffset + 10) + ")";
 
-		var xPerModel = self.state.modelWidth/speciesList.length;
+		// position relative to the grid
+		var translation = "translate(" + (self.state.gridRegion[0].x) + "," + (self.state.gridRegion[0].y-5) + ")";
+
+		var xPerModel = width/speciesList.length;  //self.state.modelWidth
 		var species = self.state.svg.selectAll("#specieslist")
 			.data(speciesList)
 			.enter()
@@ -2197,8 +2244,8 @@ console.log("yaxis start:" + this.state.yAxisRender.getRenderStartPos() + " end:
 			.attr("y", 10)
 			.attr("width", xPerModel)
 			.attr("height", 10)
-			.attr("fill", "#0F473E")
-			.attr("stroke-width", 1)
+		//	.attr("fill", "#0F473E")
+		//	.attr("stroke-width", 1)
 			.text(function (d,i){return speciesList[i];})
 			.attr("text-anchor","middle");
 	},
@@ -2798,7 +2845,7 @@ console.log(list);
 			inner += "<tr>"; 
 			text = "";
 			for (var j = 0; j < columns; j++){
-				id = self._getConceptId(unmatched[i++].id);
+				id = Utils.getConceptId(unmatched[i++].id);
 				if (unmatched[i - 1].label !== undefined){
 					label = unmatched[i - 1].label;
 				} else {
